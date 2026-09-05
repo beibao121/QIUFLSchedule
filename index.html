@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hoosiers &amp; NFL — 2026 Schedule</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%88%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F8F5EE;
+    --panel:#FFFFFF;
+    --panel-line:#E6DECD;
+    --ink:#332E29;
+    --ink-dim:#8A7F70;
+    --wine:#79313F;
+    --wine-wash:#F3E6E7;
+    --sage:#5B6E52;
+    --gold:#B5872E;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    font-variant-numeric:tabular-nums;
+    line-height:1.55;
+  }
+  h1,h2,h3,.display{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    letter-spacing:0;
+    line-height:1.05;
+    margin:0;
+  }
+  a{color:var(--wine);}
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px;}
+
+  /* ---- nav ---- */
+  nav{
+    position:sticky;top:0;z-index:20;
+    background:rgba(248,245,238,0.9);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--panel-line);
+  }
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;}
+  .brand{font-family:'Fraunces',serif;font-size:1.15rem;color:var(--ink);}
+  .navlinks{display:flex;gap:24px;}
+  .navlinks a{
+    color:var(--ink-dim);text-decoration:none;font-size:0.92rem;
+    padding:4px 0;border-bottom:2px solid transparent;
+  }
+  .navlinks a:hover{color:var(--ink);border-color:var(--gold);}
+
+  /* ---- hero ---- */
+  .hero{
+    padding:60px 0 46px;
+    border-bottom:1px solid var(--panel-line);
+    background:var(--bg);
+  }
+  .hero h1{font-size:clamp(2.1rem,6.5vw,3.3rem);}
+  .stitch{width:110px;height:0;border-top:2px dashed var(--gold);margin:20px 0 22px;}
+  .hero p{color:var(--ink-dim);max-width:52ch;font-size:1.02rem;}
+  .kickoff-box{
+    margin-top:26px;
+    border:1px solid var(--panel-line);
+    background:var(--panel);
+    border-radius:var(--radius);
+    padding:20px 24px;
+  }
+  .kickoff-box .tag{
+    display:block;
+    font-size:0.78rem;color:var(--wine);
+    font-family:'Inter',sans-serif;font-weight:600;margin-bottom:6px;
+  }
+  .kickoff-box .matchup{font-family:'Fraunces',serif;font-size:1.35rem;margin-bottom:4px;}
+  .kickoff-box .meta{color:var(--ink-dim);font-size:0.92rem;display:flex;flex-wrap:wrap;gap:6px 14px;}
+
+  /* ---- sections ---- */
+  section{padding:46px 0;border-bottom:1px solid var(--panel-line);}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
+  .section-head h2{font-size:1.7rem;}
+  .section-head .sub{color:var(--ink-dim);font-size:0.9rem;}
+
+  /* ---- game row ---- */
+  .game{
+    display:grid;
+    grid-template-columns:96px 1fr auto;
+    gap:14px;
+    align-items:center;
+    padding:14px 16px;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-left:3px solid var(--sage);
+    border-radius:var(--radius);
+    margin-bottom:8px;
+  }
+  .game .date{font-size:0.82rem;color:var(--ink-dim);}
+  .game .date b{display:block;color:var(--ink);font-size:1rem;font-weight:600;}
+  .game .matchup{font-size:1.02rem;}
+  .game .matchup .op{font-weight:600;}
+  .game .score{color:var(--gold);font-size:0.85rem;margin-left:6px;}
+  .game .watch{text-align:right;}
+  .game .watch .net{
+    display:inline-block;
+    border:1px solid var(--panel-line);
+    background:var(--bg);
+    padding:3px 10px;
+    font-size:0.78rem;
+    color:var(--ink);
+    border-radius:999px;
+  }
+  .game .watch .time{display:block;color:var(--ink-dim);font-size:0.78rem;margin-top:5px;}
+  .game.final{opacity:0.75;}
+
+  /* IU accent */
+  #iu .game{border-left-color:var(--wine);}
+  #iu .section-head h2 span{color:var(--wine);}
+
+  /* ---- controls ---- */
+  .tabs{display:flex;gap:8px;margin-bottom:22px;}
+  .tabs button{
+    background:var(--panel);border:1px solid var(--panel-line);color:var(--ink-dim);
+    font-family:'Inter',sans-serif;font-size:0.88rem;padding:8px 18px;cursor:pointer;
+    border-radius:999px;
+  }
+  .tabs button.active{background:var(--wine);color:#fff;border-color:var(--wine);}
+  select{
+    background:var(--panel);color:var(--ink);
+    border:1px solid var(--panel-line);padding:9px 12px;font-family:'Inter',sans-serif;
+    font-size:0.92rem;border-radius:8px;width:100%;max-width:340px;
+  }
+  .team-bar{height:4px;margin-bottom:18px;background:var(--panel-line);border-radius:4px;overflow:hidden;}
+  .day-group{margin-bottom:26px;}
+  .day-group h3{font-size:0.95rem;color:var(--wine);margin-bottom:10px;font-family:'Inter',sans-serif;font-weight:600;}
+
+  .msg{color:var(--ink-dim);font-size:0.92rem;padding:18px 0;}
+  .msg a{text-decoration:underline;}
+
+  footer{padding:30px 0 60px;color:var(--ink-dim);font-size:0.82rem;}
+  footer a{color:var(--ink-dim);}
+
+  @media(max-width:560px){
+    .game{grid-template-columns:72px 1fr;}
+    .game .watch{grid-column:1/-1;text-align:left;display:flex;gap:10px;align-items:center;margin-top:6px;}
+    .game .watch .time{margin-top:0;}
+    .navlinks{gap:14px;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand">HOOSIERS <span>&amp;</span> NFL</div>
+    <div class="navlinks">
+      <a href="#iu">Hoosiers</a>
+      <a href="#nfl">NFL</a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="wrap">
+    <h1>2026 Football Schedule</h1>
+    <div class="stitch"></div>
+    <p>Every Indiana Hoosiers game and every NFL team's schedule, all in one place, with kickoff times and where to watch.</p>
+    <div class="kickoff-box" id="next-iu-box">
+      <span class="tag">Next Hoosiers kickoff</span>
+      <div class="msg" style="padding:0;">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<section id="iu">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Indiana <span>Hoosiers</span></h2>
+      <div class="sub">Full 2026 season</div>
+    </div>
+    <div id="iu-schedule"><div class="msg">Loading schedule…</div></div>
+  </div>
+</section>
+
+<section id="nfl">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>NFL</h2>
+      <div class="sub">Live from ESPN</div>
+    </div>
+    <div class="tabs">
+      <button id="tab-week" class="active">This week — all 32 teams</button>
+      <button id="tab-team">Single team, full season</button>
+    </div>
+
+    <div id="panel-week">
+      <div id="nfl-week"><div class="msg">Loading this week's games…</div></div>
+    </div>
+
+    <div id="panel-team" style="display:none;">
+      <select id="team-select"><option value="">Choose a team…</option></select>
+      <div class="team-bar" id="team-bar"></div>
+      <div id="team-schedule"></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone. Broadcasts can change — always double-check close to kickoff.
+  </div>
+</footer>
+
+<script>
+const IU_TEAM_ID = 84;
+const NFL_TEAMS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams?limit=32';
+const NFL_WEEK_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+const NFL_TEAM_SCHEDULE_URL = id => `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${id}/schedule?season=2026`;
+const CFB_SCHEDULE_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}/schedule?season=2026`;
+
+function fmtDate(iso){
+  const d = new Date(iso);
+  return {
+    weekday: d.toLocaleDateString(undefined,{weekday:'short'}),
+    month: d.toLocaleDateString(undefined,{month:'short'}),
+    day: d.toLocaleDateString(undefined,{day:'numeric'}),
+    time: d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}),
+    dayKey: d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})
+  };
+}
+
+function getBroadcast(competition){
+  if(!competition) return null;
+  if(Array.isArray(competition.broadcasts) && competition.broadcasts.length){
+    const names = competition.broadcasts.flatMap(b => b.names || (b.media && b.media.shortName ? [b.media.shortName] : []));
+    if(names.length) return [...new Set(names)].join(', ');
+  }
+  if(Array.isArray(competition.geoBroadcasts) && competition.geoBroadcasts.length){
+    const names = competition.geoBroadcasts.map(g => g.media && g.media.shortName).filter(Boolean);
+    if(names.length) return [...new Set(names)].join(', ');
+  }
+  return null;
+}
+
+function eventRow(ev, teamIdForPerspective){
+  const comp = ev.competitions && ev.competitions[0];
+  if(!comp) return '';
+  const competitors = comp.competitors || [];
+  const self = teamIdForPerspective ? competitors.find(c => String(c.team && c.team.id) === String(teamIdForPerspective)) : null;
+  const opp = teamIdForPerspective ? competitors.find(c => String(c.team && c.team.id) !== String(teamIdForPerspective)) : null;
+
+  let matchupHtml;
+  if(self && opp){
+    const prefix = self.homeAway === 'home' ? 'vs' : 'at';
+    matchupHtml = `${prefix} <span class="op">${opp.team.displayName || opp.team.name}</span>`;
+  } else {
+    const home = competitors.find(c => c.homeAway === 'home');
+    const away = competitors.find(c => c.homeAway === 'away');
+    matchupHtml = `<span class="op">${away ? away.team.abbreviation || away.team.shortDisplayName : '?'}</span> at <span class="op">${home ? home.team.abbreviation || home.team.shortDisplayName : '?'}</span>`;
+  }
+
+  const completed = comp.status && comp.status.type && comp.status.type.completed;
+  let scoreHtml = '';
+  if(completed && self && opp){
+    scoreHtml = `<span class="score">${self.score}–${opp.score}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
+  } else if(completed && !self){
+    const home = competitors.find(c => c.homeAway === 'home');
+    const away = competitors.find(c => c.homeAway === 'away');
+    scoreHtml = `<span class="score">${away ? away.score : ''}–${home ? home.score : ''} Final</span>`;
+  }
+
+  const d = fmtDate(ev.date);
+  const net = getBroadcast(comp);
+  const watchHtml = completed
+    ? `<span class="net">Final</span>`
+    : `<span class="net">${net || 'TBD'}</span><span class="time">${d.time}</span>`;
+
+  return `
+    <div class="game${completed ? ' final' : ''}">
+      <div class="date">${d.weekday}<b>${d.month} ${d.day}</b></div>
+      <div class="matchup">${matchupHtml}${scoreHtml}</div>
+      <div class="watch">${watchHtml}</div>
+    </div>`;
+}
+
+async function loadIU(){
+  try{
+    const res = await fetch(CFB_SCHEDULE_URL);
+    const data = await res.json();
+    const events = (data.events || []).slice().sort((a,b)=> new Date(a.date) - new Date(b.date));
+    const box = document.getElementById('iu-schedule');
+    if(!events.length){
+      box.innerHTML = `<div class="msg">Couldn't load the schedule. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
+      return;
+    }
+    box.innerHTML = events.map(ev => eventRow(ev, IU_TEAM_ID)).join('');
+
+    const upcoming = events.find(ev => !(ev.competitions[0].status.type.completed));
+    const nextBox = document.getElementById('next-iu-box');
+    if(upcoming){
+      const comp = upcoming.competitions[0];
+      const self = comp.competitors.find(c => String(c.team.id) === String(IU_TEAM_ID));
+      const opp = comp.competitors.find(c => String(c.team.id) !== String(IU_TEAM_ID));
+      const prefix = self.homeAway === 'home' ? 'vs' : 'at';
+      const d = fmtDate(upcoming.date);
+      const net = getBroadcast(comp);
+      nextBox.innerHTML = `
+        <span class="tag">Next Hoosiers kickoff</span>
+        <div class="matchup">IU ${prefix} ${opp.team.displayName}</div>
+        <div class="meta"><span>${d.dayKey}</span><span>${d.time}</span><span>${net || 'TV TBD'}</span></div>`;
+    } else {
+      nextBox.innerHTML = `<span class="tag">Season</span><div class="meta"><span>No upcoming games found — season may be complete.</span></div>`;
+    }
+  } catch(e){
+    document.getElementById('iu-schedule').innerHTML = `<div class="msg">Couldn't load the schedule right now. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
+    document.getElementById('next-iu-box').innerHTML = `<span class="tag">NEXT HOOSIERS KICKOFF</span><div class="meta">Unavailable right now.</div>`;
+  }
+}
+
+async function loadWeek(){
+  const box = document.getElementById('nfl-week');
+  try{
+    const res = await fetch(NFL_WEEK_URL);
+    const data = await res.json();
+    const events = (data.events || []).slice().sort((a,b)=> new Date(a.date) - new Date(b.date));
+    if(!events.length){
+      box.innerHTML = `<div class="msg">No games found for this week. <a href="https://www.espn.com/nfl/schedule" target="_blank" rel="noopener">View the full schedule on ESPN</a>.</div>`;
+      return;
+    }
+    const groups = {};
+    events.forEach(ev => {
+      const key = fmtDate(ev.date).dayKey;
+      (groups[key] = groups[key] || []).push(ev);
+    });
+    box.innerHTML = Object.entries(groups).map(([day, evs]) => `
+      <div class="day-group">
+        <h3>${day}</h3>
+        ${evs.map(ev => eventRow(ev, null)).join('')}
+      </div>`).join('');
+  } catch(e){
+    box.innerHTML = `<div class="msg">Couldn't load this week's games. <a href="https://www.espn.com/nfl/schedule" target="_blank" rel="noopener">View the full schedule on ESPN</a>.</div>`;
+  }
+}
+
+async function loadTeams(){
+  const select = document.getElementById('team-select');
+  try{
+    const res = await fetch(NFL_TEAMS_URL);
+    const data = await res.json();
+    const teams = (data.sports[0].leagues[0].teams || []).map(t => t.team)
+      .sort((a,b) => a.displayName.localeCompare(b.displayName));
+    teams.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.dataset.color = t.color || '28402f';
+      opt.textContent = t.displayName;
+      select.appendChild(opt);
+    });
+    select.addEventListener('change', () => {
+      if(select.value) loadTeamSchedule(select.value, select.options[select.selectedIndex].dataset.color);
+    });
+  } catch(e){
+    select.innerHTML = `<option value="">Couldn't load team list</option>`;
+  }
+}
+
+async function loadTeamSchedule(teamId, color){
+  const box = document.getElementById('team-schedule');
+  document.getElementById('team-bar').style.background = '#' + (color || '28402f');
+  box.innerHTML = `<div class="msg">Loading schedule…</div>`;
+  try{
+    const res = await fetch(NFL_TEAM_SCHEDULE_URL(teamId));
+    const data = await res.json();
+    const events = (data.events || []).slice().sort((a,b)=> new Date(a.date) - new Date(b.date));
+    if(!events.length){
+      box.innerHTML = `<div class="msg">No games found for this team.</div>`;
+      return;
+    }
+    box.innerHTML = events.map(ev => eventRow(ev, teamId)).join('');
+  } catch(e){
+    box.innerHTML = `<div class="msg">Couldn't load that team's schedule right now.</div>`;
+  }
+}
+
+document.getElementById('tab-week').addEventListener('click', () => {
+  document.getElementById('tab-week').classList.add('active');
+  document.getElementById('tab-team').classList.remove('active');
+  document.getElementById('panel-week').style.display = '';
+  document.getElementById('panel-team').style.display = 'none';
+});
+document.getElementById('tab-team').addEventListener('click', () => {
+  document.getElementById('tab-team').classList.add('active');
+  document.getElementById('tab-week').classList.remove('active');
+  document.getElementById('panel-team').style.display = '';
+  document.getElementById('panel-week').style.display = 'none';
+});
+
+loadIU();
+loadWeek();
+loadTeams();
+</script>
+</body>
+</html>
