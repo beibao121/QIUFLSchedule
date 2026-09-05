@@ -92,6 +92,8 @@
   .kickoff-box .matchup{font-family:'Fraunces',serif;font-size:1.35rem;margin-bottom:4px;}
   .kickoff-box .meta{color:var(--ink-dim);font-size:0.92rem;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;}
   .kickoff-box .countdown{color:var(--ink);font-weight:600;}
+  .kickoff-box .winprob{color:var(--ink-dim);}
+  .kickoff-box .winprob strong{color:var(--ink);font-weight:600;}
   #next-colts-box{margin-top:0;margin-bottom:24px;}
   #next-colts-box .tag{color:var(--colts);}
 
@@ -226,7 +228,7 @@
 
 <footer>
   <div class="wrap">
-    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Prime Video, Hulu, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Broadcasts can change, so it's worth double-checking close to kickoff.
+    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Prime Video, Hulu, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Win chance is ESPN's own projection, not a betting line. Broadcasts can change, so it's worth double-checking close to kickoff.
   </div>
 </footer>
 
@@ -242,6 +244,12 @@ const CFB_RANKINGS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football
 // it only appears once the game is final. The scoreboard carries it live, so a
 // game underway needs this second call to show a running score.
 const CFB_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=400';
+// Win chance comes from ESPN's core API. Worth noting this is their own model
+// (BPI), not a sportsbook line: the /odds endpoint returns no provider for any
+// IU game, because books don't post a line until shortly before kickoff, and
+// ESPN drops odds again once a game is underway. The predictor, by contrast,
+// has a number for every game on the schedule and refreshes daily.
+const CORE_CFB = 'https://sports.core.api.espn.com/v2/sports/football/leagues/college-football';
 const NFL_SEASON_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20260901-20270215&limit=1000';
 
 // Kickoffs that haven't been announced yet come back from ESPN with
@@ -453,7 +461,7 @@ function normalizeEvents(rawEvents, selfTeamId){
     // kickoff shows up at 9:30am).
     const note = (Array.isArray(comp.notes) && comp.notes.length && comp.notes[0].headline)
       ? comp.notes[0].headline : '';
-    let matchupHtml, scoreHtml = '', isColts = false;
+    let matchupHtml, scoreHtml = '', isColts = false, selfHome = false;
 
     if(selfTeamId){
       const self = competitors.find(c => String(c.team.id) === String(selfTeamId));
@@ -464,8 +472,9 @@ function normalizeEvents(rawEvents, selfTeamId){
       // "vs" and "at" already encode this, but only if you know the convention,
       // so say it outright. Bowl and championship games are played at neither
       // team's stadium, which ESPN flags as neutralSite.
+      selfHome = self.homeAway === 'home';
       const site = comp.neutralSite ? 'Neutral site'
-        : (self.homeAway === 'home' ? 'Home' : 'Away');
+        : (selfHome ? 'Home' : 'Away');
       const siteHtml = `<span class="site${site === 'Home' ? ' home' : ''}">${site}</span>`;
       matchupHtml = `${logoImg(oppLogo)}IU ${prefix} ${rankPrefix(opp)}${opp.team.displayName} ${siteHtml}`;
       if(completed) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
@@ -503,6 +512,7 @@ function normalizeEvents(rawEvents, selfTeamId){
       completed,
       live,
       isColts,
+      selfHome,
       clock,
       tbd,
       timeStr: live ? 'LIVE' : (tbd ? 'TBD' : fmtTime(date)),
@@ -672,18 +682,48 @@ function startCountdown(event, elId){
   if(document.getElementById(elId)) countdownTimers[elId] = setInterval(tick, 30000);
 }
 
+// Turns a win percentage into the thing actually worth knowing: are they
+// expected to win this one or not. The number alone doesn't answer that for
+// someone who doesn't follow the sport.
+function favouriteLabel(pct){
+  if(pct >= 90) return 'Big favorite';
+  if(pct >= 70) return 'Favored';
+  if(pct >= 55) return 'Slight favorite';
+  if(pct > 45)  return 'Toss-up';
+  if(pct > 30)  return 'Slight underdog';
+  if(pct > 10)  return 'Underdog';
+  return 'Big underdog';
+}
+
+// Rounds to a whole number, except at the extremes where rounding would print
+// 100% or 0% — neither is ever true, and 99.9% is the honest figure anyway.
+function formatPct(pct){
+  if(pct >= 99 || pct <= 1) return pct.toFixed(1).replace(/\.0$/, '') + '%';
+  return Math.round(pct) + '%';
+}
+
+function winProbHtml(pct, live){
+  if(typeof pct !== 'number' || isNaN(pct)) return '';
+  // Favorite/underdog is a pre-game framing; once it's being played the live
+  // number speaks for itself.
+  return live
+    ? `<span class="winprob"><strong>${formatPct(pct)}</strong> chance to win</span>`
+    : `<span class="winprob"><strong>${favouriteLabel(pct)}</strong> ${formatPct(pct)} to win</span>`;
+}
+
 // Both section boxes ("next IU kickoff", "next Colts game") render the same
 // three shapes: in progress, upcoming, or nothing left.
-function kickoffBoxHtml(e, labels, countdownId){
+function kickoffBoxHtml(e, labels, countdownId, winprobId){
+  const winSlot = winprobId ? `<span id="${winprobId}"></span>` : '';
   if(!e) return `<span class="tag">${labels.none}</span><div class="meta"><span>${labels.noneText}</span></div>`;
   if(e.live){
     return `<span class="tag">${labels.live}</span>
       <div class="matchup">${e.matchupHtml} ${e.scoreHtml}</div>
-      <div class="meta"><span>${e.clock || 'In progress'}</span>${watchPillHtml(e.watch)}</div>`;
+      <div class="meta"><span>${e.clock || 'In progress'}</span>${winSlot}${watchPillHtml(e.watch)}</div>`;
   }
   return `<span class="tag">${labels.next}</span>
     <div class="matchup">${e.matchupHtml}</div>
-    <div class="meta"><span>${e.dayLabel}</span><span>${e.tbd ? 'Time TBD' : e.timeStr}</span><span class="countdown" id="${countdownId}"></span>${watchPillHtml(e.watch)}</div>`;
+    <div class="meta"><span>${e.dayLabel}</span><span>${e.tbd ? 'Time TBD' : e.timeStr}</span><span class="countdown" id="${countdownId}"></span>${winSlot}${watchPillHtml(e.watch)}</div>`;
 }
 
 // A live score painted once at page load goes stale within a minute and still
@@ -695,6 +735,29 @@ let liveRefreshTimer = null;
 function scheduleLiveRefresh(events){
   if(liveRefreshTimer){ clearTimeout(liveRefreshTimer); liveRefreshTimer = null; }
   if(events.some(e => e.live)) liveRefreshTimer = setTimeout(loadIU, LIVE_REFRESH_MS);
+}
+
+// IU's chance of winning a given game. An upcoming game uses the predictor's
+// gameProjection; one in progress uses the play-by-play probabilities feed,
+// whose last page holds the current number. Decorative — any failure just
+// leaves the slot empty.
+async function fetchWinProbability(e){
+  const base = `${CORE_CFB}/events/${e.id}/competitions/${e.id}`;
+  try{
+    if(e.live){
+      const first = await (await fetch(`${base}/probabilities?limit=1`)).json();
+      if(!first.pageCount) return null;
+      const last = await (await fetch(`${base}/probabilities?limit=1&page=${first.pageCount}`)).json();
+      const item = last.items && last.items[0];
+      if(!item) return null;
+      const pct = e.selfHome ? item.homeWinPercentage : item.awayWinPercentage;
+      return typeof pct === 'number' ? pct * 100 : null;
+    }
+    const p = await (await fetch(`${base}/predictor`)).json();
+    const side = e.selfHome ? p.homeTeam : p.awayTeam;
+    const gp = ((side && side.statistics) || []).find(s => s.name === 'gameProjection');
+    return gp ? Number(gp.displayValue) : null;
+  } catch(err){ return null; }
 }
 
 // Fills in the running score for any IU game currently in progress, matching
@@ -745,8 +808,14 @@ async function loadIU(){
       next: 'Next Hoosiers kickoff',
       none: 'Season',
       noneText: 'No upcoming games found — the season may be complete.'
-    }, 'iu-countdown');
-    if(upcoming) startCountdown(upcoming, 'iu-countdown');
+    }, 'iu-countdown', 'iu-winprob');
+    if(upcoming){
+      startCountdown(upcoming, 'iu-countdown');
+      fetchWinProbability(upcoming).then(pct => {
+        const slot = document.getElementById('iu-winprob');
+        if(slot) slot.outerHTML = winProbHtml(pct, upcoming.live) || '';
+      });
+    }
   } catch(e){
     document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule right now. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
     document.getElementById('next-iu-box').innerHTML = `<span class="tag">Next Hoosiers kickoff</span><div class="meta"><span>Unavailable right now.</span></div>`;
