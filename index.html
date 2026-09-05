@@ -84,7 +84,11 @@
   .head-title{display:flex;align-items:center;gap:12px;}
   .team-logo{height:42px;width:42px;object-fit:contain;flex-shrink:0;}
   .section-head h2{font-size:1.7rem;}
-  .section-head .sub{color:var(--ink-dim);font-size:0.9rem;}
+  .section-head .sub{
+    color:var(--ink-dim);font-size:0.9rem;
+    display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 14px;
+  }
+  .section-head .sub .rank{color:var(--wine);font-weight:600;}
   #iu .section-head h2 span{color:var(--wine);}
 
   /* ---- week view ---- */
@@ -107,8 +111,8 @@
   .net{display:inline-block;border:1px solid var(--panel-line);background:var(--bg);padding:3px 10px;font-size:0.76rem;color:var(--ink);border-radius:999px;white-space:nowrap;}
   .net.final{opacity:0.7;}
   .net.only{
-    white-space:normal;text-align:left;font-weight:600;max-width:230px;
-    border-radius:8px;border-color:var(--gold);background:#FBF0D9;color:#8A6412;
+    font-weight:600;
+    border-color:var(--gold);background:#FBF0D9;color:#8A6412;
   }
 
   .msg{color:var(--ink-dim);font-size:0.92rem;padding:12px 0;}
@@ -154,7 +158,7 @@
         <img id="iu-logo" class="team-logo" alt="" style="display:none;">
         <h2>Indiana <span>Hoosiers</span></h2>
       </div>
-      <div class="sub">Two weeks at a time</div>
+      <div class="sub" id="iu-standing"></div>
     </div>
     <div id="iu-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
@@ -167,7 +171,6 @@
         <img id="nfl-logo" class="team-logo" alt="" style="display:none;">
         <h2>NFL</h2>
       </div>
-      <div class="sub">Every game, two weeks at a time</div>
     </div>
     <div id="nfl-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
@@ -175,14 +178,23 @@
 
 <footer>
   <div class="wrap">
-    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone. "Where to watch" is matched to her apps — Paramount+, Peacock, Netflix, Hulu, and FUBO — and leaves out YouTube TV on purpose. Broadcasts can change, so it's worth double-checking close to kickoff.
+    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to her apps — Paramount+, Peacock, Netflix, Hulu, and FUBO — and leaves out YouTube TV on purpose. Broadcasts can change, so it's worth double-checking close to kickoff.
   </div>
 </footer>
 
 <script>
 const IU_TEAM_ID = 84;
 const CFB_SCHEDULE_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}/schedule?season=2026`;
+const CFB_TEAM_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}`;
+const CFB_RANKINGS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/rankings';
 const NFL_SEASON_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20260901-20270215&limit=1000';
+
+// Kickoffs that haven't been announced yet come back from ESPN with
+// timeValid:false and a placeholder timestamp of midnight Eastern (04:00Z in
+// summer, 05:00Z in winter). Read literally that's a "12:00 AM" kickoff, and
+// west of Eastern it lands the game on the previous calendar day. So for those
+// games we suppress the time entirely and bucket them by their Eastern date.
+const EASTERN = 'America/New_York';
 
 /* ---------- helpers ---------- */
 
@@ -237,7 +249,7 @@ function watchPillHtml(watch){
   if(!watch || watch.unknown) return `<span class="net">Check listings</span>`;
   if(watch.onlyMissing){
     const names = watch.missing.map(m => m.app).join(' or ');
-    return `<span class="net only">Only on ${names} \u2014 she doesn't have this</span>`;
+    return `<span class="net only">Only on ${names}</span>`;
   }
   return watch.available.map(a => `<span class="net">${a.app}</span>`).join('');
 }
@@ -245,9 +257,35 @@ function watchPillHtml(watch){
 function fmtTime(d){
   return d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
 }
-function sameDate(a,b){
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+// "YYYY-MM-DD" for the viewer's own time zone, used to bucket games into days.
+function dayKeyLocal(d){
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
+// Same shape, but for the Eastern date — en-CA formats as YYYY-MM-DD.
+function dayKeyEastern(d){
+  return d.toLocaleDateString('en-CA',{timeZone:EASTERN});
+}
+function dateFromDayKey(key){
+  const [y,m,d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function fmtDayLabel(d, tbd){
+  const opts = {weekday:'long', month:'long', day:'numeric'};
+  if(tbd) opts.timeZone = EASTERN;
+  return d.toLocaleDateString(undefined, opts);
+}
+
+// The college schedule endpoint returns score as {value, displayValue} while
+// the NFL scoreboard returns a plain string, so unwrap whichever we got.
+function scoreVal(competitor){
+  const s = competitor && competitor.score;
+  if(s === null || s === undefined) return '';
+  if(typeof s === 'object') return s.displayValue !== undefined ? s.displayValue : s.value;
+  return s;
+}
+
 function startOfWeek(d){
   const copy = new Date(d);
   copy.setHours(0,0,0,0);
@@ -274,20 +312,26 @@ function normalizeEvents(rawEvents, selfTeamId){
       if(!self || !opp) return null;
       const prefix = self.homeAway === 'home' ? 'vs' : 'at';
       matchupHtml = `IU ${prefix} ${opp.team.displayName}`;
-      if(completed) scoreHtml = `<span class="score">${self.score}\u2013${opp.score}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
+      if(completed) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
     } else {
       if(!home || !away) return null;
       matchupHtml = `${away.team.displayName} at ${home.team.displayName}`;
-      if(completed) scoreHtml = `<span class="score">${away.score}\u2013${home.score} Final</span>`;
+      if(completed) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)} Final</span>`;
     }
 
     const date = new Date(ev.date);
+    // Only treat a kickoff as TBD when ESPN explicitly says so; if the field is
+    // absent, assume the timestamp is real.
+    const tbd = comp.timeValid === false;
     return {
       date,
       matchupHtml,
       scoreHtml,
       completed,
-      timeStr: fmtTime(date),
+      tbd,
+      timeStr: tbd ? 'TBD' : fmtTime(date),
+      dayKey: tbd ? dayKeyEastern(date) : dayKeyLocal(date),
+      dayLabel: fmtDayLabel(date, tbd),
       watch: completed ? null : resolveWatch(getBroadcast(comp))
     };
   }).filter(Boolean);
@@ -313,7 +357,7 @@ function renderWeek(containerId, events){
 
   const SPAN_DAYS = 14;
   const upcoming = events.find(e => !e.completed) || events[events.length - 1];
-  let periodStart = startOfWeek(upcoming.date);
+  let periodStart = startOfWeek(dateFromDayKey(upcoming.dayKey));
 
   function draw(){
     const periodEnd = new Date(periodStart);
@@ -324,7 +368,8 @@ function renderWeek(containerId, events){
     for(let i = 0; i < SPAN_DAYS; i++){
       const d = new Date(periodStart);
       d.setDate(d.getDate() + i);
-      days.push({ date: d, events: events.filter(e => sameDate(e.date, d)) });
+      const key = dayKeyLocal(d);
+      days.push({ date: d, events: events.filter(e => e.dayKey === key) });
     }
     const daysWithGames = days.filter(d => d.events.length);
 
@@ -366,6 +411,52 @@ function setLogo(id, url){
   img.src = url;
 }
 
+// Record + latest AP Poll standing for the IU section header. Purely
+// decorative: each half is independent, and anything that doesn't come back in
+// the expected shape is simply left out rather than shown as an error.
+async function loadIUStanding(){
+  const el = document.getElementById('iu-standing');
+  if(!el) return;
+  let rankHtml = '';
+  const parts = [];
+
+  try{
+    const res = await fetch(CFB_TEAM_URL);
+    const data = await res.json();
+    const items = data && data.team && data.team.record && Array.isArray(data.team.record.items)
+      ? data.team.record.items : [];
+    const overall = items.find(i => i.type === 'total') || items[0];
+    if(overall && overall.summary) parts.push(`<span>${overall.summary}</span>`);
+  } catch(e){ /* leave the record out */ }
+
+  try{
+    const res = await fetch(CFB_RANKINGS_URL);
+    const data = await res.json();
+    const polls = Array.isArray(data.rankings) ? data.rankings : [];
+    const ap = polls.find(p => p.type === 'ap')
+      || polls.find(p => (p.shortName || '').toUpperCase().indexOf('AP') === 0);
+    if(ap){
+      const isIU = r => r && r.team && String(r.team.id) === String(IU_TEAM_ID);
+      const ranked = (ap.ranks || []).find(isIU);
+      const receiving = (ap.others || []).find(isIU);
+      if(ranked && ranked.current) rankHtml = `<span class="rank">No. ${ranked.current}</span>`;
+      else if(receiving) rankHtml = `<span class="rank">Receiving votes</span>`;
+      else rankHtml = `<span class="rank">Unranked</span>`;
+
+      const when = ap.date ? new Date(ap.date) : null;
+      const week = ap.occurrence && ap.occurrence.displayValue;
+      if(when && !isNaN(when.getTime())){
+        const asOf = when.toLocaleDateString(undefined,{month:'short', day:'numeric', timeZone:EASTERN});
+        parts.push(`<span>AP Poll${week ? ', ' + week : ''} — as of ${asOf}</span>`);
+      } else {
+        parts.push(`<span>AP Poll</span>`);
+      }
+    }
+  } catch(e){ /* leave the ranking out */ }
+
+  if(rankHtml || parts.length) el.innerHTML = rankHtml + parts.join('');
+}
+
 async function loadIU(){
   try{
     const res = await fetch(CFB_SCHEDULE_URL);
@@ -389,7 +480,7 @@ async function loadIU(){
       nextBox.innerHTML = `
         <span class="tag">Next Hoosiers kickoff</span>
         <div class="matchup">${upcoming.matchupHtml}</div>
-        <div class="meta"><span>${upcoming.date.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})}</span><span>${upcoming.timeStr}</span>${watchPillHtml(upcoming.watch)}</div>`;
+        <div class="meta"><span>${upcoming.dayLabel}</span><span>${upcoming.tbd ? 'Time TBD' : upcoming.timeStr}</span>${watchPillHtml(upcoming.watch)}</div>`;
     } else {
       nextBox.innerHTML = `<span class="tag">Season</span><div class="meta"><span>No upcoming games found — season may be complete.</span></div>`;
     }
@@ -417,6 +508,7 @@ async function loadNFL(){
 }
 
 loadIU();
+loadIUStanding();
 loadNFL();
 </script>
 </body>
