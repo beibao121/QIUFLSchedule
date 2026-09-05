@@ -85,32 +85,11 @@
   .section-head .sub{color:var(--ink-dim);font-size:0.9rem;}
   #iu .section-head h2 span{color:var(--wine);}
 
-  /* ---- calendar ---- */
-  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  /* ---- week view ---- */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
   .cal-month{font-family:'Fraunces',serif;font-size:1.15rem;}
   .cal-nav{background:var(--panel);border:1px solid var(--panel-line);border-radius:999px;width:34px;height:34px;cursor:pointer;color:var(--ink);font-size:1.15rem;line-height:1;}
   .cal-nav:hover{border-color:var(--wine);color:var(--wine);}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
-  .cal-weekdays{margin-bottom:8px;font-size:0.72rem;color:var(--ink-dim);text-align:center;}
-  .cal-cell{
-    position:relative;min-height:78px;border:1px solid var(--panel-line);background:var(--panel);
-    border-radius:8px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
-    padding:6px 6px 8px;font-size:0.82rem;color:var(--ink);font-family:'Inter',sans-serif;
-    text-align:left;width:100%;
-  }
-  .cal-cell.empty{border:none;background:transparent;}
-  .cal-cell.has-events{cursor:pointer;border-color:var(--sage);}
-  .cal-cell.has-events:hover{background:var(--wine-wash);}
-  .cal-cell.today .num{color:var(--wine);font-weight:700;}
-  .cal-cell.selected{background:var(--wine-wash);border-color:var(--wine);}
-  .cal-cell .num{font-weight:600;}
-  .cal-cell .cell-game{
-    font-size:0.64rem;color:var(--ink-dim);line-height:1.3;width:100%;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  }
-  .cal-cell .cell-more{font-size:0.64rem;color:var(--gold);}
-  .cal-detail{margin-top:24px;}
-  .cal-detail-label{font-size:0.85rem;color:var(--ink-dim);margin-bottom:10px;}
   .day-group{margin-bottom:22px;}
   .day-group h3{font-size:0.95rem;color:var(--wine);margin-bottom:10px;font-family:'Inter',sans-serif;font-weight:600;}
 
@@ -135,7 +114,6 @@
   @media(max-width:560px){
     .day-game{grid-template-columns:1fr;gap:6px;}
     .navlinks{gap:14px;}
-    .cal-cell{font-size:0.74rem;padding:4px;}
   }
 </style>
 </head>
@@ -155,7 +133,7 @@
   <div class="wrap">
     <h1>2026 Football Schedule</h1>
     <div class="stitch"></div>
-    <p>Every Indiana Hoosiers game and every NFL game this season, laid out on a calendar, with which app to open to watch.</p>
+    <p>Every Indiana Hoosiers game and every NFL game this season, browsable week by week, with which app to open to watch.</p>
     <div class="kickoff-box" id="next-iu-box">
       <span class="tag">Next Hoosiers kickoff</span>
       <div class="msg" style="padding:0;">Loading…</div>
@@ -167,7 +145,7 @@
   <div class="wrap">
     <div class="section-head">
       <h2>Indiana <span>Hoosiers</span></h2>
-      <div class="sub">Full 2026 season</div>
+      <div class="sub">Week by week</div>
     </div>
     <div id="iu-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
@@ -177,7 +155,7 @@
   <div class="wrap">
     <div class="section-head">
       <h2>NFL</h2>
-      <div class="sub">Every game, every team</div>
+      <div class="sub">Every game, browsed week by week</div>
     </div>
     <div id="nfl-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
@@ -235,11 +213,17 @@ function watchPillHtml(watch){
 function fmtTime(d){
   return d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
 }
-function dateKey(d){
-  return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();
+function sameDate(a,b){
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function startOfWeek(d){
+  const copy = new Date(d);
+  copy.setHours(0,0,0,0);
+  copy.setDate(copy.getDate() - copy.getDay());
+  return copy;
 }
 
-// Normalizes raw ESPN events into a flat list the calendar can render.
+// Normalizes raw ESPN events into a flat list the week view can render.
 // selfTeamId: pass a team id to phrase matchups as "IU vs/at Opponent";
 // pass null to show full "Away Team at Home Team" names (used for NFL).
 function normalizeEvents(rawEvents, selfTeamId){
@@ -250,7 +234,7 @@ function normalizeEvents(rawEvents, selfTeamId){
     const home = competitors.find(c => c.homeAway === 'home');
     const away = competitors.find(c => c.homeAway === 'away');
     const completed = !!(comp.status && comp.status.type && comp.status.type.completed);
-    let matchupHtml, shortLabel, scoreHtml = '';
+    let matchupHtml, scoreHtml = '';
 
     if(selfTeamId){
       const self = competitors.find(c => String(c.team.id) === String(selfTeamId));
@@ -258,12 +242,10 @@ function normalizeEvents(rawEvents, selfTeamId){
       if(!self || !opp) return null;
       const prefix = self.homeAway === 'home' ? 'vs' : 'at';
       matchupHtml = `IU ${prefix} ${opp.team.displayName}`;
-      shortLabel = `${prefix} ${opp.team.displayName}`;
       if(completed) scoreHtml = `<span class="score">${self.score}\u2013${opp.score}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
     } else {
       if(!home || !away) return null;
       matchupHtml = `${away.team.displayName} at ${home.team.displayName}`;
-      shortLabel = matchupHtml;
       if(completed) scoreHtml = `<span class="score">${away.score}\u2013${home.score} Final</span>`;
     }
 
@@ -271,7 +253,6 @@ function normalizeEvents(rawEvents, selfTeamId){
     return {
       date,
       matchupHtml,
-      shortLabel,
       scoreHtml,
       completed,
       timeStr: fmtTime(date),
@@ -289,9 +270,9 @@ function dayGameHtml(e){
     </div>`;
 }
 
-/* ---------- calendar component ---------- */
+/* ---------- week view ---------- */
 
-function renderCalendar(containerId, events){
+function renderWeek(containerId, events){
   const root = document.getElementById(containerId);
   if(!events.length){
     root.innerHTML = `<div class="msg">No games found.</div>`;
@@ -299,87 +280,41 @@ function renderCalendar(containerId, events){
   }
 
   const upcoming = events.find(e => !e.completed) || events[events.length - 1];
-  let viewYear = upcoming.date.getFullYear();
-  let viewMonth = upcoming.date.getMonth();
-  let selectedKey = dateKey(upcoming.date);
+  let weekStart = startOfWeek(upcoming.date);
 
   function draw(){
-    const firstDay = new Date(viewYear, viewMonth, 1);
-    const startWeekday = firstDay.getDay();
-    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const monthLabel = firstDay.toLocaleDateString(undefined, {month:'long', year:'numeric'});
-    const todayKey = dateKey(new Date());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const label = `${weekStart.toLocaleDateString(undefined,{month:'short', day:'numeric'})} \u2013 ${weekEnd.toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'})}`;
 
-    const byDay = {};
-    events.forEach(e => {
-      if(e.date.getFullYear() === viewYear && e.date.getMonth() === viewMonth){
-        const d = e.date.getDate();
-        (byDay[d] = byDay[d] || []).push(e);
-      }
-    });
-
-    // if the selected date isn't in the month currently shown, drop it
-    const selParts = selectedKey ? selectedKey.split('-').map(Number) : [];
-    if(!selectedKey || selParts[0] !== viewYear || selParts[1] !== viewMonth){
-      const firstWithEvents = Object.keys(byDay).map(Number).sort((a,b)=>a-b)[0];
-      selectedKey = firstWithEvents ? dateKey(new Date(viewYear, viewMonth, firstWithEvents)) : '';
+    const days = [];
+    for(let i = 0; i < 7; i++){
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      days.push({ date: d, events: events.filter(e => sameDate(e.date, d)) });
     }
-
-    const MAX_SHOWN = 3;
-    let cells = '';
-    for(let i = 0; i < startWeekday; i++) cells += `<div class="cal-cell empty"></div>`;
-    for(let day = 1; day <= daysInMonth; day++){
-      const key = viewYear+'-'+viewMonth+'-'+day;
-      const evs = byDay[day] || [];
-      const classes = ['cal-cell'];
-      if(evs.length) classes.push('has-events');
-      if(key === todayKey) classes.push('today');
-      if(key === selectedKey) classes.push('selected');
-      const shown = evs.slice(0, MAX_SHOWN).map(e => `<span class="cell-game">${e.shortLabel}</span>`).join('');
-      const more = evs.length > MAX_SHOWN ? `<span class="cell-more">+${evs.length - MAX_SHOWN} more</span>` : '';
-      cells += `<button type="button" class="${classes.join(' ')}" data-key="${key}">
-        <span class="num">${day}</span>${shown}${more}
-      </button>`;
-    }
+    const daysWithGames = days.filter(d => d.events.length);
 
     root.innerHTML = `
       <div class="cal-head">
-        <button type="button" class="cal-nav" data-dir="-1" aria-label="Previous month">‹</button>
-        <span class="cal-month">${monthLabel}</span>
-        <button type="button" class="cal-nav" data-dir="1" aria-label="Next month">›</button>
+        <button type="button" class="cal-nav" data-dir="-1" aria-label="Previous week">‹</button>
+        <span class="cal-month">${label}</span>
+        <button type="button" class="cal-nav" data-dir="1" aria-label="Next week">›</button>
       </div>
-      <div class="cal-grid cal-weekdays">
-        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-      </div>
-      <div class="cal-grid">${cells}</div>
-      <div class="cal-detail">
-        <div class="cal-detail-label" id="${containerId}-label"></div>
-        <div id="${containerId}-games"></div>
-      </div>`;
+      ${daysWithGames.length
+        ? daysWithGames.map(d => `
+            <div class="day-group">
+              <h3>${d.date.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})}</h3>
+              ${d.events.map(dayGameHtml).join('')}
+            </div>`).join('')
+        : `<div class="msg">No games this week.</div>`}`;
 
     root.querySelectorAll('.cal-nav').forEach(btn => {
       btn.addEventListener('click', () => {
-        viewMonth += parseInt(btn.dataset.dir, 10);
-        if(viewMonth < 0){ viewMonth = 11; viewYear--; }
-        if(viewMonth > 11){ viewMonth = 0; viewYear++; }
+        weekStart.setDate(weekStart.getDate() + 7 * parseInt(btn.dataset.dir, 10));
         draw();
       });
     });
-    root.querySelectorAll('.cal-cell.has-events').forEach(btn => {
-      btn.addEventListener('click', () => { selectedKey = btn.dataset.key; draw(); });
-    });
-
-    const label = document.getElementById(containerId + '-label');
-    const gamesBox = document.getElementById(containerId + '-games');
-    const selDay = selectedKey ? parseInt(selectedKey.split('-')[2], 10) : null;
-    const selEvs = selDay ? (byDay[selDay] || []) : [];
-    if(selDay && selEvs.length){
-      label.textContent = new Date(viewYear, viewMonth, selDay).toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
-      gamesBox.innerHTML = selEvs.map(dayGameHtml).join('');
-    } else {
-      label.textContent = '';
-      gamesBox.innerHTML = `<div class="msg">Click a date with games to see where to watch.</div>`;
-    }
   }
 
   draw();
@@ -396,7 +331,7 @@ async function loadIU(){
       document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
       return;
     }
-    renderCalendar('iu-calendar', events);
+    renderWeek('iu-calendar', events);
 
     const nextBox = document.getElementById('next-iu-box');
     const upcoming = events.find(e => !e.completed);
@@ -419,7 +354,7 @@ async function loadNFL(){
     const res = await fetch(NFL_SEASON_URL);
     const data = await res.json();
     const events = normalizeEvents(data.events, null).sort((a,b) => a.date - b.date);
-    renderCalendar('nfl-calendar', events);
+    renderWeek('nfl-calendar', events);
   } catch(e){
     document.getElementById('nfl-calendar').innerHTML = `<div class="msg">Couldn't load the NFL schedule right now. <a href="https://www.espn.com/nfl/schedule" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
   }
