@@ -77,6 +77,7 @@
   }
   .kickoff-box .matchup{font-family:'Fraunces',serif;font-size:1.35rem;margin-bottom:4px;}
   .kickoff-box .meta{color:var(--ink-dim);font-size:0.92rem;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;}
+  .kickoff-box .countdown{color:var(--ink);font-weight:600;}
 
   section{padding:46px 0;border-bottom:1px solid var(--panel-line);}
   .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
@@ -297,6 +298,36 @@ function fmtDayLabel(d, tbd){
   const opts = {weekday:'long', month:'long', day:'numeric'};
   if(tbd) opts.timeZone = EASTERN;
   return d.toLocaleDateString(undefined, opts);
+}
+
+// Whole calendar days between today and a YYYY-MM-DD key, ignoring time of day.
+function daysUntilDayKey(key){
+  const today = dateFromDayKey(dayKeyLocal(new Date()));
+  return Math.round((dateFromDayKey(key) - today) / 86400000);
+}
+
+// How long until kickoff. For the games where ESPN hasn't announced a time yet
+// the timestamp is a placeholder, so counting down to it would invent a
+// precision that doesn't exist — those count down in whole days instead.
+function countdownText(e){
+  if(e.tbd){
+    const days = daysUntilDayKey(e.dayKey);
+    if(days < 0) return '';
+    if(days === 0) return 'Later today';
+    if(days === 1) return 'Tomorrow';
+    return `In ${days} days`;
+  }
+  const ms = e.date - new Date();
+  if(ms <= 0) return '';
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const mins = Math.floor(ms / 60000);
+  if(mins < 1) return 'Kicking off now';
+  if(mins < 60) return `In ${plural(mins,'minute')}`;
+  const hrs = Math.floor(mins / 60), leftoverMins = mins % 60;
+  if(hrs < 24) return `In ${plural(hrs,'hour')}${leftoverMins ? `, ${leftoverMins} min` : ''}`;
+  const days = Math.floor(hrs / 24), leftoverHrs = hrs % 24;
+  if(days < 7) return `In ${plural(days,'day')}${leftoverHrs ? `, ${leftoverHrs} hr` : ''}`;
+  return `In ${plural(days,'day')}`;
 }
 
 // The college schedule endpoint returns score as {value, displayValue} while
@@ -550,6 +581,25 @@ async function loadIUStanding(){
 // looks current, which is worse than showing nothing. So while an IU game is
 // underway, re-pull the schedule on a timer. IU only: that payload is ~140KB
 // against the NFL season's ~4MB, which isn't worth re-fetching every minute.
+// Ticks the kickoff countdown. Every 30s rather than every second: the display
+// only goes down to minutes, so a faster tick would just repaint the same text.
+// Self-cancelling — once the box is rebuilt without a countdown (the game went
+// live, or kickoff passed) the element is gone and the timer stops.
+let countdownTimer = null;
+function startCountdown(event){
+  if(countdownTimer){ clearInterval(countdownTimer); countdownTimer = null; }
+  const stop = () => { clearInterval(countdownTimer); countdownTimer = null; };
+  const tick = () => {
+    const el = document.getElementById('iu-countdown');
+    if(!el) return stop();
+    const text = countdownText(event);
+    if(!text){ el.remove(); return stop(); }
+    el.textContent = text;
+  };
+  tick();
+  if(document.getElementById('iu-countdown')) countdownTimer = setInterval(tick, 30000);
+}
+
 const LIVE_REFRESH_MS = 60000;
 let liveRefreshTimer = null;
 function scheduleLiveRefresh(events){
@@ -586,7 +636,8 @@ async function loadIU(){
         : `
         <span class="tag">Next Hoosiers kickoff</span>
         <div class="matchup">${upcoming.matchupHtml}</div>
-        <div class="meta"><span>${upcoming.dayLabel}</span><span>${upcoming.tbd ? 'Time TBD' : upcoming.timeStr}</span>${watchPillHtml(upcoming.watch)}</div>`;
+        <div class="meta"><span>${upcoming.dayLabel}</span><span>${upcoming.tbd ? 'Time TBD' : upcoming.timeStr}</span><span class="countdown" id="iu-countdown"></span>${watchPillHtml(upcoming.watch)}</div>`;
+      startCountdown(upcoming);
     } else {
       nextBox.innerHTML = `<span class="tag">Season</span><div class="meta"><span>No upcoming games found — season may be complete.</span></div>`;
     }
