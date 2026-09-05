@@ -118,6 +118,7 @@
   .net{display:inline-block;border:1px solid var(--panel-line);background:var(--bg);padding:3px 10px;font-size:0.76rem;color:var(--ink);border-radius:999px;white-space:nowrap;}
   .net.final{opacity:0.7;}
   .net.pending{color:var(--ink-dim);}
+  .via{color:var(--ink-dim);font-size:0.76rem;align-self:center;white-space:nowrap;}
   .net.only{
     font-weight:600;
     border-color:var(--gold);background:#FBF0D9;color:#8A6412;
@@ -243,12 +244,17 @@ function watchApp(networkRaw){
 // simulcast), so this keeps every unique app rather than just the first match.
 function resolveWatch(networkNames){
   if(!networkNames || !networkNames.length) return {available:[], missing:[], onlyMissing:false, unknown:true};
-  const seen = new Set();
-  const unique = [];
+  // Keep the network each app came from. The app answers "what do I open";
+  // the network answers "what am I looking for once I'm in there", which for
+  // something like FUBO is a few hundred channels' worth of difference.
+  const byApp = new Map();
   networkNames.forEach(n => {
     const r = watchApp(n);
-    if(!seen.has(r.app)){ seen.add(r.app); unique.push(r); }
+    const found = byApp.get(r.app);
+    if(found){ if(found.networks.indexOf(n) === -1) found.networks.push(n); }
+    else byApp.set(r.app, { app:r.app, missing:r.missing, networks:[n] });
   });
+  const unique = [...byApp.values()];
   const available = unique.filter(r => !r.missing);
   const missing = unique.filter(r => r.missing);
   return { available, missing, onlyMissing: available.length === 0 && missing.length > 0, unknown:false };
@@ -263,7 +269,13 @@ function watchPillHtml(watch){
     const names = watch.missing.map(m => m.app).join(' or ');
     return `<span class="net only">Only on ${names}</span>`;
   }
-  return watch.available.map(a => `<span class="net">${a.app}</span>`).join('');
+  return watch.available.map(a => {
+    // Skip the note when the app and the channel are the same thing — nobody
+    // needs to be told Peacock is on Peacock.
+    const via = (a.networks || []).filter(n => n.toLowerCase() !== a.app.toLowerCase());
+    return `<span class="net">${a.app}</span>`
+      + (via.length ? `<span class="via">on ${via.join(' / ')}</span>` : '');
+  }).join('');
 }
 
 function fmtTime(d){
