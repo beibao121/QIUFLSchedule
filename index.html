@@ -81,6 +81,8 @@
 
   section{padding:46px 0;border-bottom:1px solid var(--panel-line);}
   .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
+  .head-title{display:flex;align-items:center;gap:12px;}
+  .team-logo{height:42px;width:42px;object-fit:contain;flex-shrink:0;}
   .section-head h2{font-size:1.7rem;}
   .section-head .sub{color:var(--ink-dim);font-size:0.9rem;}
   #iu .section-head h2 span{color:var(--wine);}
@@ -101,9 +103,13 @@
   .dg-time{font-size:0.8rem;color:var(--ink-dim);}
   .dg-matchup{font-size:0.98rem;}
   .score{color:var(--gold);font-size:0.85rem;margin-left:6px;}
+  .watch-pills{display:flex;flex-wrap:wrap;gap:6px;}
   .net{display:inline-block;border:1px solid var(--panel-line);background:var(--bg);padding:3px 10px;font-size:0.76rem;color:var(--ink);border-radius:999px;white-space:nowrap;}
-  .net.missing{border-color:var(--gold);color:var(--gold);}
   .net.final{opacity:0.7;}
+  .net.only{
+    white-space:normal;text-align:left;font-weight:600;max-width:230px;
+    border-radius:8px;border-color:var(--gold);background:#FBF0D9;color:#8A6412;
+  }
 
   .msg{color:var(--ink-dim);font-size:0.92rem;padding:12px 0;}
   .msg a{text-decoration:underline;}
@@ -133,7 +139,7 @@
   <div class="wrap">
     <h1>2026 Football Schedule</h1>
     <div class="stitch"></div>
-    <p>Every Indiana Hoosiers game and every NFL game this season, browsable week by week, with which app to open to watch.</p>
+    <p>Every Indiana Hoosiers game and every NFL game this season, browsable two weeks at a time, with which app to open to watch.</p>
     <div class="kickoff-box" id="next-iu-box">
       <span class="tag">Next Hoosiers kickoff</span>
       <div class="msg" style="padding:0;">Loading…</div>
@@ -144,8 +150,11 @@
 <section id="iu">
   <div class="wrap">
     <div class="section-head">
-      <h2>Indiana <span>Hoosiers</span></h2>
-      <div class="sub">Week by week</div>
+      <div class="head-title">
+        <img id="iu-logo" class="team-logo" alt="" style="display:none;">
+        <h2>Indiana <span>Hoosiers</span></h2>
+      </div>
+      <div class="sub">Two weeks at a time</div>
     </div>
     <div id="iu-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
@@ -154,8 +163,11 @@
 <section id="nfl">
   <div class="wrap">
     <div class="section-head">
-      <h2>NFL</h2>
-      <div class="sub">Every game, browsed week by week</div>
+      <div class="head-title">
+        <img id="nfl-logo" class="team-logo" alt="" style="display:none;">
+        <h2>NFL</h2>
+      </div>
+      <div class="sub">Every game, two weeks at a time</div>
     </div>
     <div id="nfl-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
@@ -175,20 +187,20 @@ const NFL_SEASON_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/n
 /* ---------- helpers ---------- */
 
 function getBroadcast(competition){
-  if(!competition) return null;
+  if(!competition) return [];
   if(Array.isArray(competition.broadcasts) && competition.broadcasts.length){
     const names = competition.broadcasts.flatMap(b => b.names || (b.media && b.media.shortName ? [b.media.shortName] : []));
-    if(names.length) return [...new Set(names)].join(', ');
+    if(names.length) return [...new Set(names)];
   }
   if(Array.isArray(competition.geoBroadcasts) && competition.geoBroadcasts.length){
     const names = competition.geoBroadcasts.map(g => g.media && g.media.shortName).filter(Boolean);
-    if(names.length) return [...new Set(names)].join(', ');
+    if(names.length) return [...new Set(names)];
   }
-  return null;
+  return [];
 }
 
-// Maps a broadcast network name to the app to open on Apple TV, based on
-// her lineup: Paramount+, Peacock, Netflix, Hulu, FUBO (no YouTube TV).
+// Maps a single broadcast network name to the app to open on Apple TV, based
+// on her lineup: Paramount+, Peacock, Netflix, Hulu, FUBO (no YouTube TV).
 function watchApp(networkRaw){
   if(!networkRaw) return {app:'Check listings', missing:false};
   const n = networkRaw.toLowerCase();
@@ -205,9 +217,29 @@ function watchApp(networkRaw){
   return {app:'FUBO', missing:false};
 }
 
+// Resolves a game's full list of broadcast networks into the distinct apps
+// she could use to watch it. A game can air on more than one network (a
+// simulcast), so this keeps every unique app rather than just the first match.
+function resolveWatch(networkNames){
+  if(!networkNames || !networkNames.length) return {available:[], missing:[], onlyMissing:false, unknown:true};
+  const seen = new Set();
+  const unique = [];
+  networkNames.forEach(n => {
+    const r = watchApp(n);
+    if(!seen.has(r.app)){ seen.add(r.app); unique.push(r); }
+  });
+  const available = unique.filter(r => !r.missing);
+  const missing = unique.filter(r => r.missing);
+  return { available, missing, onlyMissing: available.length === 0 && missing.length > 0, unknown:false };
+}
+
 function watchPillHtml(watch){
-  if(!watch) return `<span class="net">Check listings</span>`;
-  return `<span class="net${watch.missing ? ' missing' : ''}">${watch.app}${watch.missing ? ' (not in her apps)' : ''}</span>`;
+  if(!watch || watch.unknown) return `<span class="net">Check listings</span>`;
+  if(watch.onlyMissing){
+    const names = watch.missing.map(m => m.app).join(' or ');
+    return `<span class="net only">Only on ${names} \u2014 she doesn't have this</span>`;
+  }
+  return watch.available.map(a => `<span class="net">${a.app}</span>`).join('');
 }
 
 function fmtTime(d){
@@ -256,7 +288,7 @@ function normalizeEvents(rawEvents, selfTeamId){
       scoreHtml,
       completed,
       timeStr: fmtTime(date),
-      watch: completed ? null : watchApp(getBroadcast(comp))
+      watch: completed ? null : resolveWatch(getBroadcast(comp))
     };
   }).filter(Boolean);
 }
@@ -266,7 +298,7 @@ function dayGameHtml(e){
     <div class="day-game">
       <div class="dg-time">${e.timeStr}</div>
       <div class="dg-matchup">${e.matchupHtml} ${e.completed ? e.scoreHtml : ''}</div>
-      <div>${e.completed ? '<span class="net final">Final</span>' : watchPillHtml(e.watch)}</div>
+      <div class="watch-pills">${e.completed ? '<span class="net final">Final</span>' : watchPillHtml(e.watch)}</div>
     </div>`;
 }
 
@@ -279,17 +311,18 @@ function renderWeek(containerId, events){
     return;
   }
 
+  const SPAN_DAYS = 14;
   const upcoming = events.find(e => !e.completed) || events[events.length - 1];
-  let weekStart = startOfWeek(upcoming.date);
+  let periodStart = startOfWeek(upcoming.date);
 
   function draw(){
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    const label = `${weekStart.toLocaleDateString(undefined,{month:'short', day:'numeric'})} \u2013 ${weekEnd.toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'})}`;
+    const periodEnd = new Date(periodStart);
+    periodEnd.setDate(periodEnd.getDate() + (SPAN_DAYS - 1));
+    const label = `${periodStart.toLocaleDateString(undefined,{month:'short', day:'numeric'})} \u2013 ${periodEnd.toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'})}`;
 
     const days = [];
-    for(let i = 0; i < 7; i++){
-      const d = new Date(weekStart);
+    for(let i = 0; i < SPAN_DAYS; i++){
+      const d = new Date(periodStart);
       d.setDate(d.getDate() + i);
       days.push({ date: d, events: events.filter(e => sameDate(e.date, d)) });
     }
@@ -297,9 +330,9 @@ function renderWeek(containerId, events){
 
     root.innerHTML = `
       <div class="cal-head">
-        <button type="button" class="cal-nav" data-dir="-1" aria-label="Previous week">‹</button>
+        <button type="button" class="cal-nav" data-dir="-1" aria-label="Previous two weeks">‹</button>
         <span class="cal-month">${label}</span>
-        <button type="button" class="cal-nav" data-dir="1" aria-label="Next week">›</button>
+        <button type="button" class="cal-nav" data-dir="1" aria-label="Next two weeks">›</button>
       </div>
       ${daysWithGames.length
         ? daysWithGames.map(d => `
@@ -307,11 +340,11 @@ function renderWeek(containerId, events){
               <h3>${d.date.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})}</h3>
               ${d.events.map(dayGameHtml).join('')}
             </div>`).join('')
-        : `<div class="msg">No games this week.</div>`}`;
+        : `<div class="msg">No games in this stretch.</div>`}`;
 
     root.querySelectorAll('.cal-nav').forEach(btn => {
       btn.addEventListener('click', () => {
-        weekStart.setDate(weekStart.getDate() + 7 * parseInt(btn.dataset.dir, 10));
+        periodStart.setDate(periodStart.getDate() + SPAN_DAYS * parseInt(btn.dataset.dir, 10));
         draw();
       });
     });
@@ -322,10 +355,27 @@ function renderWeek(containerId, events){
 
 /* ---------- loaders ---------- */
 
+// Shows a logo only once it has actually loaded, so a bad/missing URL just
+// stays hidden instead of showing a broken-image icon.
+function setLogo(id, url){
+  if(!url) return;
+  const img = document.getElementById(id);
+  if(!img) return;
+  img.onload = () => { img.style.display = 'inline-block'; };
+  img.onerror = () => { img.style.display = 'none'; };
+  img.src = url;
+}
+
 async function loadIU(){
   try{
     const res = await fetch(CFB_SCHEDULE_URL);
     const data = await res.json();
+
+    const teamLogo = (data.team && Array.isArray(data.team.logos) && data.team.logos.length)
+      ? data.team.logos[0].href
+      : 'https://a.espncdn.com/i/teamlogos/ncaa/500/84.png';
+    setLogo('iu-logo', teamLogo);
+
     const events = normalizeEvents(data.events, IU_TEAM_ID).sort((a,b) => a.date - b.date);
     if(!events.length){
       document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
@@ -353,6 +403,12 @@ async function loadNFL(){
   try{
     const res = await fetch(NFL_SEASON_URL);
     const data = await res.json();
+
+    const leagueLogo = (Array.isArray(data.leagues) && data.leagues[0] && Array.isArray(data.leagues[0].logos) && data.leagues[0].logos.length)
+      ? data.leagues[0].logos[0].href
+      : null;
+    setLogo('nfl-logo', leagueLogo);
+
     const events = normalizeEvents(data.events, null).sort((a,b) => a.date - b.date);
     renderWeek('nfl-calendar', events);
   } catch(e){
