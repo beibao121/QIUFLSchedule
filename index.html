@@ -106,6 +106,8 @@
   }
   .dg-time{font-size:0.8rem;color:var(--ink-dim);}
   .dg-time.live{color:var(--wine);font-weight:700;letter-spacing:0.02em;}
+  .day-game.is-colts{background:var(--wine-wash);border-color:#E3CDD0;}
+  /* Declared after .is-colts so a live Colts game keeps the live border. */
   .day-game.is-live{border-color:var(--wine);}
   .dg-matchup{font-size:0.98rem;}
   .score{color:var(--gold);font-size:0.85rem;margin-left:6px;}
@@ -192,6 +194,9 @@
 
 <script>
 const IU_TEAM_ID = 84;
+// The local NFL team — their games get highlighted in the NFL list, which is
+// otherwise an undifferentiated wall of all 32 teams.
+const COLTS_TEAM_ID = 11;
 const CFB_SCHEDULE_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}/schedule?season=2026`;
 const CFB_TEAM_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}`;
 const CFB_RANKINGS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/rankings';
@@ -355,6 +360,14 @@ function scoreVal(competitor){
   return s;
 }
 
+// The two endpoints disagree again: the college schedule puts logos in a
+// team.logos array, the NFL scoreboard uses a single team.logo string.
+function teamLogoHref(team){
+  if(!team) return '';
+  if(Array.isArray(team.logos) && team.logos.length) return team.logos[0].href;
+  return team.logo || '';
+}
+
 // Same idea as setLogo(): start hidden and only reveal once the image actually
 // loads, so a dead logo URL leaves a clean row rather than a broken-image icon.
 function logoImg(href){
@@ -400,14 +413,14 @@ function normalizeEvents(rawEvents, selfTeamId){
     // kickoff shows up at 9:30am).
     const note = (Array.isArray(comp.notes) && comp.notes.length && comp.notes[0].headline)
       ? comp.notes[0].headline : '';
-    let matchupHtml, scoreHtml = '';
+    let matchupHtml, scoreHtml = '', isColts = false;
 
     if(selfTeamId){
       const self = competitors.find(c => String(c.team.id) === String(selfTeamId));
       const opp = competitors.find(c => String(c.team.id) !== String(selfTeamId));
       if(!self || !opp) return null;
       const prefix = self.homeAway === 'home' ? 'vs' : 'at';
-      const oppLogo = (Array.isArray(opp.team.logos) && opp.team.logos.length) ? opp.team.logos[0].href : '';
+      const oppLogo = teamLogoHref(opp.team);
       // "vs" and "at" already encode this, but only if you know the convention,
       // so say it outright. Bowl and championship games are played at neither
       // team's stadium, which ESPN flags as neutralSite.
@@ -426,8 +439,13 @@ function normalizeEvents(rawEvents, selfTeamId){
       if(placeholder){
         matchupHtml = note || 'Playoff game \u2014 teams to be determined';
       } else {
-        matchupHtml = `${away.team.displayName} at ${home.team.displayName}`;
+        // Only the Colts get a logo here. Doing it for every team would mean
+        // ~570 image requests across a full season's NFL list.
+        const colts = [away, home].find(c => String(c.team.id) === String(COLTS_TEAM_ID));
+        matchupHtml = `${colts ? logoImg(teamLogoHref(colts.team)) : ''}`
+          + `${away.team.displayName} at ${home.team.displayName}`;
         if(note) matchupHtml += ` <span class="round">${note}</span>`;
+        isColts = !!colts;
       }
       if(completed) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)} Final</span>`;
       else if(live) scoreHtml = pairScoreHtml(scoreVal(away), scoreVal(home));
@@ -444,6 +462,7 @@ function normalizeEvents(rawEvents, selfTeamId){
       scoreHtml,
       completed,
       live,
+      isColts,
       clock,
       tbd,
       timeStr: live ? 'LIVE' : (tbd ? 'TBD' : fmtTime(date)),
@@ -458,7 +477,7 @@ function dayGameHtml(e){
   const detail = e.completed ? e.scoreHtml
     : (e.live ? `${e.scoreHtml}${e.clock ? `<span class="clock">${e.clock}</span>` : ''}` : '');
   return `
-    <div class="day-game${e.live ? ' is-live' : ''}">
+    <div class="day-game${e.isColts ? ' is-colts' : ''}${e.live ? ' is-live' : ''}">
       <div class="dg-time${e.live ? ' live' : ''}">${e.timeStr}</div>
       <div class="dg-matchup">${e.matchupHtml} ${detail}</div>
       <div class="watch-pills">${e.completed ? '<span class="net final">Final</span>' : watchPillHtml(e.watch)}</div>
