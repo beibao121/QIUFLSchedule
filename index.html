@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F8F5EE">
+<meta name="apple-mobile-web-app-title" content="Hoosiers &amp; NFL">
 <title>Hoosiers &amp; NFL — 2026 Schedule</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%88%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +29,11 @@
     --radius:12px;
   }
   *{box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
+  html{
+    scroll-behavior:smooth;
+    /* iOS Safari otherwise inflates body text when the phone is rotated. */
+    -webkit-text-size-adjust:100%;
+  }
   body{
     margin:0;
     background:var(--bg);
@@ -49,6 +55,9 @@
   nav{
     position:sticky;top:0;z-index:20;
     background:rgba(248,245,238,0.9);
+    /* Safari only accepted the prefixed form until v18, so without this the
+       blur silently does nothing on an iPhone a version or two behind. */
+    -webkit-backdrop-filter:blur(6px);
     backdrop-filter:blur(6px);
     border-bottom:1px solid var(--panel-line);
   }
@@ -83,8 +92,12 @@
   .kickoff-box .matchup{font-family:'Fraunces',serif;font-size:1.35rem;margin-bottom:4px;}
   .kickoff-box .meta{color:var(--ink-dim);font-size:0.92rem;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;}
   .kickoff-box .countdown{color:var(--ink);font-weight:600;}
+  #next-colts-box{margin-top:0;margin-bottom:24px;}
+  #next-colts-box .tag{color:var(--colts);}
 
-  section{padding:46px 0;border-bottom:1px solid var(--panel-line);}
+  /* The nav is sticky, so without this the "Hoosiers"/"NFL" links scroll the
+     section heading up underneath it. */
+  section{padding:46px 0;border-bottom:1px solid var(--panel-line);scroll-margin-top:70px;}
   .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
   .head-title{display:flex;align-items:center;gap:12px;}
   .team-logo{height:42px;width:42px;object-fit:contain;flex-shrink:0;}
@@ -134,7 +147,10 @@
   .msg{color:var(--ink-dim);font-size:0.92rem;padding:12px 0;}
   .msg a{text-decoration:underline;}
 
-  footer{padding:30px 0 60px;color:var(--ink-dim);font-size:0.82rem;}
+  /* viewport-fit=cover lets the page use the full screen, so the footer has to
+     clear the home indicator itself. */
+  footer{padding:30px 0 calc(60px + env(safe-area-inset-bottom));color:var(--ink-dim);font-size:0.82rem;}
+  .wrap{padding-left:max(20px, env(safe-area-inset-left));padding-right:max(20px, env(safe-area-inset-right));}
   footer a{color:var(--ink-dim);}
 
   /* This page is mostly read on a phone, so the small screen gets real tap
@@ -199,6 +215,10 @@
         <img id="nfl-logo" class="team-logo" alt="" style="display:none;">
         <h2>NFL</h2>
       </div>
+    </div>
+    <div class="kickoff-box" id="next-colts-box">
+      <span class="tag">Next Colts game</span>
+      <div class="msg" style="padding:0;">Loading…</div>
     </div>
     <div id="nfl-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
@@ -633,29 +653,43 @@ async function loadIUStanding(){
   if(rankHtml || parts.length) el.innerHTML = rankHtml + parts.join('');
 }
 
-// A live score painted once at page load goes stale within a minute and still
-// looks current, which is worse than showing nothing. So while an IU game is
-// underway, re-pull the schedule on a timer. IU only: that payload is ~140KB
-// against the NFL season's ~4MB, which isn't worth re-fetching every minute.
-// Ticks the kickoff countdown. Every 30s rather than every second: the display
+// Ticks the kickoff countdowns. Every 30s rather than every second: the display
 // only goes down to minutes, so a faster tick would just repaint the same text.
 // Self-cancelling — once the box is rebuilt without a countdown (the game went
 // live, or kickoff passed) the element is gone and the timer stops.
-let countdownTimer = null;
-function startCountdown(event){
-  if(countdownTimer){ clearInterval(countdownTimer); countdownTimer = null; }
-  const stop = () => { clearInterval(countdownTimer); countdownTimer = null; };
+const countdownTimers = {};
+function startCountdown(event, elId){
+  const stop = () => { clearInterval(countdownTimers[elId]); delete countdownTimers[elId]; };
+  if(countdownTimers[elId]) stop();
   const tick = () => {
-    const el = document.getElementById('iu-countdown');
+    const el = document.getElementById(elId);
     if(!el) return stop();
     const text = countdownText(event);
     if(!text){ el.remove(); return stop(); }
     el.textContent = text;
   };
   tick();
-  if(document.getElementById('iu-countdown')) countdownTimer = setInterval(tick, 30000);
+  if(document.getElementById(elId)) countdownTimers[elId] = setInterval(tick, 30000);
 }
 
+// Both section boxes ("next IU kickoff", "next Colts game") render the same
+// three shapes: in progress, upcoming, or nothing left.
+function kickoffBoxHtml(e, labels, countdownId){
+  if(!e) return `<span class="tag">${labels.none}</span><div class="meta"><span>${labels.noneText}</span></div>`;
+  if(e.live){
+    return `<span class="tag">${labels.live}</span>
+      <div class="matchup">${e.matchupHtml} ${e.scoreHtml}</div>
+      <div class="meta"><span>${e.clock || 'In progress'}</span>${watchPillHtml(e.watch)}</div>`;
+  }
+  return `<span class="tag">${labels.next}</span>
+    <div class="matchup">${e.matchupHtml}</div>
+    <div class="meta"><span>${e.dayLabel}</span><span>${e.tbd ? 'Time TBD' : e.timeStr}</span><span class="countdown" id="${countdownId}"></span>${watchPillHtml(e.watch)}</div>`;
+}
+
+// A live score painted once at page load goes stale within a minute and still
+// looks current, which is worse than showing nothing. So while an IU game is
+// underway, re-pull the schedule on a timer. IU only: that payload is ~140KB
+// against the NFL season's ~4MB, which isn't worth re-fetching every minute.
 const LIVE_REFRESH_MS = 60000;
 let liveRefreshTimer = null;
 function scheduleLiveRefresh(events){
@@ -705,22 +739,14 @@ async function loadIU(){
     renderWeek('iu-calendar', events);
     scheduleLiveRefresh(events);
 
-    const nextBox = document.getElementById('next-iu-box');
     const upcoming = events.find(e => !e.completed);
-    if(upcoming){
-      nextBox.innerHTML = upcoming.live
-        ? `
-        <span class="tag">Hoosiers playing right now</span>
-        <div class="matchup">${upcoming.matchupHtml} ${upcoming.scoreHtml}</div>
-        <div class="meta"><span>${upcoming.clock || 'In progress'}</span>${watchPillHtml(upcoming.watch)}</div>`
-        : `
-        <span class="tag">Next Hoosiers kickoff</span>
-        <div class="matchup">${upcoming.matchupHtml}</div>
-        <div class="meta"><span>${upcoming.dayLabel}</span><span>${upcoming.tbd ? 'Time TBD' : upcoming.timeStr}</span><span class="countdown" id="iu-countdown"></span>${watchPillHtml(upcoming.watch)}</div>`;
-      startCountdown(upcoming);
-    } else {
-      nextBox.innerHTML = `<span class="tag">Season</span><div class="meta"><span>No upcoming games found — season may be complete.</span></div>`;
-    }
+    document.getElementById('next-iu-box').innerHTML = kickoffBoxHtml(upcoming, {
+      live: 'Hoosiers playing right now',
+      next: 'Next Hoosiers kickoff',
+      none: 'Season',
+      noneText: 'No upcoming games found — the season may be complete.'
+    }, 'iu-countdown');
+    if(upcoming) startCountdown(upcoming, 'iu-countdown');
   } catch(e){
     document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule right now. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
     document.getElementById('next-iu-box').innerHTML = `<span class="tag">Next Hoosiers kickoff</span><div class="meta"><span>Unavailable right now.</span></div>`;
@@ -739,8 +765,20 @@ async function loadNFL(){
 
     const events = normalizeEvents(data.events, null).sort((a,b) => a.date - b.date);
     renderWeek('nfl-calendar', events);
+
+    // Finding the next Colts game otherwise means paging through a couple of
+    // hundred rows, which is a lot of thumb on a phone.
+    const nextColts = events.find(e => e.isColts && !e.completed);
+    document.getElementById('next-colts-box').innerHTML = kickoffBoxHtml(nextColts, {
+      live: 'Colts playing right now',
+      next: 'Next Colts game',
+      none: 'Colts',
+      noneText: 'No upcoming games found — the season may be complete.'
+    }, 'colts-countdown');
+    if(nextColts) startCountdown(nextColts, 'colts-countdown');
   } catch(e){
     document.getElementById('nfl-calendar').innerHTML = `<div class="msg">Couldn't load the NFL schedule right now. <a href="https://www.espn.com/nfl/schedule" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
+    document.getElementById('next-colts-box').innerHTML = `<span class="tag">Next Colts game</span><div class="meta"><span>Unavailable right now.</span></div>`;
   }
 }
 
