@@ -19,6 +19,11 @@
     --wine-wash:#F3E6E7;
     --sage:#5B6E52;
     --gold:#B5872E;
+    /* Colts blue, as ESPN reports it (team.color on the Colts competitor),
+       plus a wash and hairline mixed down toward white for the row tint. */
+    --colts:#003B75;
+    --colts-wash:#E4EBF3;
+    --colts-line:#B8CADD;
     --radius:12px;
   }
   *{box-sizing:border-box;}
@@ -106,7 +111,7 @@
   }
   .dg-time{font-size:0.8rem;color:var(--ink-dim);}
   .dg-time.live{color:var(--wine);font-weight:700;letter-spacing:0.02em;}
-  .day-game.is-colts{background:var(--wine-wash);border-color:#E3CDD0;}
+  .day-game.is-colts{background:var(--colts-wash);border-color:var(--colts-line);}
   /* Declared after .is-colts so a live Colts game keeps the live border. */
   .day-game.is-live{border-color:var(--wine);}
   .dg-matchup{font-size:0.98rem;}
