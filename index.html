@@ -178,7 +178,7 @@
 
 <footer>
   <div class="wrap">
-    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to her apps — Paramount+, Peacock, Netflix, Hulu, and FUBO — and leaves out YouTube TV on purpose. Broadcasts can change, so it's worth double-checking close to kickoff.
+    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Hulu, and FUBO — and leaves out YouTube TV on purpose. Broadcasts can change, so it's worth double-checking close to kickoff.
   </div>
 </footer>
 
@@ -212,7 +212,8 @@ function getBroadcast(competition){
 }
 
 // Maps a single broadcast network name to the app to open on Apple TV, based
-// on her lineup: Paramount+, Peacock, Netflix, Hulu, FUBO (no YouTube TV).
+// on the subscription lineup: Paramount+, Peacock, Netflix, Hulu, FUBO (no
+// YouTube TV).
 function watchApp(networkRaw){
   if(!networkRaw) return {app:'Check listings', missing:false};
   const n = networkRaw.toLowerCase();
@@ -225,12 +226,12 @@ function watchApp(networkRaw){
   if(n.includes('hulu')) return {app:'Hulu', missing:false};
   if(n.includes('youtube')) return {app:'FUBO', missing:false};
   // FOX, ABC, ESPN, ESPN2, ESPNU, NFL Network, BTN, SEC/ACC Network, TNT,
-  // truTV, USA, The CW, and most local affiliates all live in her FUBO lineup.
+  // truTV, USA, The CW, and most local affiliates all live in the FUBO lineup.
   return {app:'FUBO', missing:false};
 }
 
 // Resolves a game's full list of broadcast networks into the distinct apps
-// she could use to watch it. A game can air on more than one network (a
+// available to watch it on. A game can air on more than one network (a
 // simulcast), so this keeps every unique app rather than just the first match.
 function resolveWatch(networkNames){
   if(!networkNames || !networkNames.length) return {available:[], missing:[], onlyMissing:false, unknown:true};
