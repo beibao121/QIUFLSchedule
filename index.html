@@ -41,7 +41,6 @@
   a{color:var(--wine);}
   .wrap{max-width:920px;margin:0 auto;padding:0 20px;}
 
-  /* ---- nav ---- */
   nav{
     position:sticky;top:0;z-index:20;
     background:rgba(248,245,238,0.9);
@@ -57,7 +56,6 @@
   }
   .navlinks a:hover{color:var(--ink);border-color:var(--gold);}
 
-  /* ---- hero ---- */
   .hero{
     padding:60px 0 46px;
     border-bottom:1px solid var(--panel-line);
@@ -79,77 +77,54 @@
     font-family:'Inter',sans-serif;font-weight:600;margin-bottom:6px;
   }
   .kickoff-box .matchup{font-family:'Fraunces',serif;font-size:1.35rem;margin-bottom:4px;}
-  .kickoff-box .meta{color:var(--ink-dim);font-size:0.92rem;display:flex;flex-wrap:wrap;gap:6px 14px;}
+  .kickoff-box .meta{color:var(--ink-dim);font-size:0.92rem;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;}
 
-  /* ---- sections ---- */
   section{padding:46px 0;border-bottom:1px solid var(--panel-line);}
   .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
   .section-head h2{font-size:1.7rem;}
   .section-head .sub{color:var(--ink-dim);font-size:0.9rem;}
-
-  /* ---- game row ---- */
-  .game{
-    display:grid;
-    grid-template-columns:96px 1fr auto;
-    gap:14px;
-    align-items:center;
-    padding:14px 16px;
-    background:var(--panel);
-    border:1px solid var(--panel-line);
-    border-left:3px solid var(--sage);
-    border-radius:var(--radius);
-    margin-bottom:8px;
-  }
-  .game .date{font-size:0.82rem;color:var(--ink-dim);}
-  .game .date b{display:block;color:var(--ink);font-size:1rem;font-weight:600;}
-  .game .matchup{font-size:1.02rem;}
-  .game .matchup .op{font-weight:600;}
-  .game .score{color:var(--gold);font-size:0.85rem;margin-left:6px;}
-  .game .watch{text-align:right;}
-  .game .watch .net{
-    display:inline-block;
-    border:1px solid var(--panel-line);
-    background:var(--bg);
-    padding:3px 10px;
-    font-size:0.78rem;
-    color:var(--ink);
-    border-radius:999px;
-  }
-  .game .watch .time{display:block;color:var(--ink-dim);font-size:0.78rem;margin-top:5px;}
-  .game.final{opacity:0.75;}
-
-  /* IU accent */
-  #iu .game{border-left-color:var(--wine);}
   #iu .section-head h2 span{color:var(--wine);}
 
-  /* ---- controls ---- */
-  .tabs{display:flex;gap:8px;margin-bottom:22px;}
-  .tabs button{
-    background:var(--panel);border:1px solid var(--panel-line);color:var(--ink-dim);
-    font-family:'Inter',sans-serif;font-size:0.88rem;padding:8px 18px;cursor:pointer;
-    border-radius:999px;
-  }
-  .tabs button.active{background:var(--wine);color:#fff;border-color:var(--wine);}
-  select{
-    background:var(--panel);color:var(--ink);
-    border:1px solid var(--panel-line);padding:9px 12px;font-family:'Inter',sans-serif;
-    font-size:0.92rem;border-radius:8px;width:100%;max-width:340px;
-  }
-  .team-bar{height:4px;margin-bottom:18px;background:var(--panel-line);border-radius:4px;overflow:hidden;}
-  .day-group{margin-bottom:26px;}
-  .day-group h3{font-size:0.95rem;color:var(--wine);margin-bottom:10px;font-family:'Inter',sans-serif;font-weight:600;}
+  /* ---- calendar ---- */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .cal-month{font-family:'Fraunces',serif;font-size:1.15rem;}
+  .cal-nav{background:var(--panel);border:1px solid var(--panel-line);border-radius:999px;width:34px;height:34px;cursor:pointer;color:var(--ink);font-size:1.15rem;line-height:1;}
+  .cal-nav:hover{border-color:var(--wine);color:var(--wine);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cal-weekdays{margin-bottom:8px;font-size:0.72rem;color:var(--ink-dim);text-align:center;}
+  .cal-cell{position:relative;aspect-ratio:1/1;border:1px solid var(--panel-line);background:var(--panel);border-radius:8px;display:flex;align-items:flex-start;padding:6px;font-size:0.82rem;color:var(--ink);cursor:default;font-family:'Inter',sans-serif;}
+  .cal-cell.empty{border:none;background:transparent;}
+  .cal-cell.has-events{cursor:pointer;border-color:var(--sage);}
+  .cal-cell.has-events:hover{background:var(--wine-wash);}
+  .cal-cell.today .num{color:var(--wine);font-weight:700;}
+  .cal-cell.selected{background:var(--wine);border-color:var(--wine);}
+  .cal-cell.selected .num,.cal-cell.selected .dot-count{color:#fff;}
+  .dot-count{position:absolute;bottom:5px;right:5px;background:var(--gold);color:#fff;font-size:0.65rem;min-width:16px;height:16px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 3px;}
+  .cal-detail{margin-top:20px;}
+  .cal-detail-label{font-size:0.85rem;color:var(--ink-dim);margin-bottom:10px;}
 
-  .msg{color:var(--ink-dim);font-size:0.92rem;padding:18px 0;}
+  .day-game{
+    display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;
+    padding:13px 15px;background:var(--panel);border:1px solid var(--panel-line);
+    border-radius:var(--radius);margin-bottom:8px;
+  }
+  .dg-time{font-size:0.8rem;color:var(--ink-dim);}
+  .dg-matchup{font-size:0.98rem;}
+  .score{color:var(--gold);font-size:0.85rem;margin-left:6px;}
+  .net{display:inline-block;border:1px solid var(--panel-line);background:var(--bg);padding:3px 10px;font-size:0.76rem;color:var(--ink);border-radius:999px;white-space:nowrap;}
+  .net.missing{border-color:var(--gold);color:var(--gold);}
+  .net.final{opacity:0.7;}
+
+  .msg{color:var(--ink-dim);font-size:0.92rem;padding:12px 0;}
   .msg a{text-decoration:underline;}
 
   footer{padding:30px 0 60px;color:var(--ink-dim);font-size:0.82rem;}
   footer a{color:var(--ink-dim);}
 
   @media(max-width:560px){
-    .game{grid-template-columns:72px 1fr;}
-    .game .watch{grid-column:1/-1;text-align:left;display:flex;gap:10px;align-items:center;margin-top:6px;}
-    .game .watch .time{margin-top:0;}
+    .day-game{grid-template-columns:1fr;gap:6px;}
     .navlinks{gap:14px;}
+    .cal-cell{font-size:0.74rem;padding:4px;}
   }
 </style>
 </head>
@@ -157,7 +132,7 @@
 
 <nav>
   <div class="wrap">
-    <div class="brand">HOOSIERS <span>&amp;</span> NFL</div>
+    <div class="brand">HOOSIERS &amp; NFL</div>
     <div class="navlinks">
       <a href="#iu">Hoosiers</a>
       <a href="#nfl">NFL</a>
@@ -169,7 +144,7 @@
   <div class="wrap">
     <h1>2026 Football Schedule</h1>
     <div class="stitch"></div>
-    <p>Every Indiana Hoosiers game and every NFL team's schedule, all in one place, with kickoff times and where to watch.</p>
+    <p>Every Indiana Hoosiers game and every NFL game this season, laid out on a calendar, with which app to open to watch.</p>
     <div class="kickoff-box" id="next-iu-box">
       <span class="tag">Next Hoosiers kickoff</span>
       <div class="msg" style="padding:0;">Loading…</div>
@@ -183,7 +158,7 @@
       <h2>Indiana <span>Hoosiers</span></h2>
       <div class="sub">Full 2026 season</div>
     </div>
-    <div id="iu-schedule"><div class="msg">Loading schedule…</div></div>
+    <div id="iu-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
 </section>
 
@@ -191,48 +166,24 @@
   <div class="wrap">
     <div class="section-head">
       <h2>NFL</h2>
-      <div class="sub">Live from ESPN</div>
+      <div class="sub">Every game, every team</div>
     </div>
-    <div class="tabs">
-      <button id="tab-week" class="active">This week — all 32 teams</button>
-      <button id="tab-team">Single team, full season</button>
-    </div>
-
-    <div id="panel-week">
-      <div id="nfl-week"><div class="msg">Loading this week's games…</div></div>
-    </div>
-
-    <div id="panel-team" style="display:none;">
-      <select id="team-select"><option value="">Choose a team…</option></select>
-      <div class="team-bar" id="team-bar"></div>
-      <div id="team-schedule"></div>
-    </div>
+    <div id="nfl-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone. Broadcasts can change — always double-check close to kickoff.
+    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone. "Where to watch" is matched to her apps — Paramount+, Peacock, Netflix, Hulu, and FUBO — and leaves out YouTube TV on purpose. Broadcasts can change, so it's worth double-checking close to kickoff.
   </div>
 </footer>
 
 <script>
 const IU_TEAM_ID = 84;
-const NFL_TEAMS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams?limit=32';
-const NFL_WEEK_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
-const NFL_TEAM_SCHEDULE_URL = id => `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${id}/schedule?season=2026`;
 const CFB_SCHEDULE_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}/schedule?season=2026`;
+const NFL_SEASON_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20260901-20270215&limit=1000';
 
-function fmtDate(iso){
-  const d = new Date(iso);
-  return {
-    weekday: d.toLocaleDateString(undefined,{weekday:'short'}),
-    month: d.toLocaleDateString(undefined,{month:'short'}),
-    day: d.toLocaleDateString(undefined,{day:'numeric'}),
-    time: d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}),
-    dayKey: d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})
-  };
-}
+/* ---------- helpers ---------- */
 
 function getBroadcast(competition){
   if(!competition) return null;
@@ -247,162 +198,219 @@ function getBroadcast(competition){
   return null;
 }
 
-function eventRow(ev, teamIdForPerspective){
-  const comp = ev.competitions && ev.competitions[0];
-  if(!comp) return '';
-  const competitors = comp.competitors || [];
-  const self = teamIdForPerspective ? competitors.find(c => String(c.team && c.team.id) === String(teamIdForPerspective)) : null;
-  const opp = teamIdForPerspective ? competitors.find(c => String(c.team && c.team.id) !== String(teamIdForPerspective)) : null;
+// Maps a broadcast network name to the app to open on Apple TV, based on
+// her lineup: Paramount+, Peacock, Netflix, Hulu, FUBO (no YouTube TV).
+function watchApp(networkRaw){
+  if(!networkRaw) return {app:'Check listings', missing:false};
+  const n = networkRaw.toLowerCase();
+  if(n.includes('paramount+') || n.includes('cbs')) return {app:'Paramount+', missing:false};
+  if(n.includes('peacock')) return {app:'Peacock', missing:false};
+  if(n.includes('netflix')) return {app:'Netflix', missing:false};
+  if(n.includes('nbc')) return {app:'Peacock', missing:false};
+  if(n.includes('prime video') || n.includes('amazon')) return {app:'Prime Video', missing:true};
+  if(n.includes('espn+')) return {app:'ESPN+', missing:true};
+  if(n.includes('hulu')) return {app:'Hulu', missing:false};
+  if(n.includes('youtube')) return {app:'FUBO', missing:false};
+  // FOX, ABC, ESPN, ESPN2, ESPNU, NFL Network, BTN, SEC/ACC Network, TNT,
+  // truTV, USA, The CW, and most local affiliates all live in her FUBO lineup.
+  return {app:'FUBO', missing:false};
+}
 
-  let matchupHtml;
-  if(self && opp){
-    const prefix = self.homeAway === 'home' ? 'vs' : 'at';
-    matchupHtml = `${prefix} <span class="op">${opp.team.displayName || opp.team.name}</span>`;
-  } else {
+function watchPillHtml(watch){
+  if(!watch) return `<span class="net">Check listings</span>`;
+  return `<span class="net${watch.missing ? ' missing' : ''}">${watch.app}${watch.missing ? ' (not in her apps)' : ''}</span>`;
+}
+
+function fmtTime(d){
+  return d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+}
+function dateKey(d){
+  return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();
+}
+
+// Normalizes raw ESPN events into a flat list the calendar can render.
+// selfTeamId: pass a team id to phrase matchups as "IU vs/at Opponent";
+// pass null to show full "Away Team at Home Team" names (used for NFL).
+function normalizeEvents(rawEvents, selfTeamId){
+  return (rawEvents || []).map(ev => {
+    const comp = ev.competitions && ev.competitions[0];
+    if(!comp) return null;
+    const competitors = comp.competitors || [];
     const home = competitors.find(c => c.homeAway === 'home');
     const away = competitors.find(c => c.homeAway === 'away');
-    matchupHtml = `<span class="op">${away ? away.team.abbreviation || away.team.shortDisplayName : '?'}</span> at <span class="op">${home ? home.team.abbreviation || home.team.shortDisplayName : '?'}</span>`;
-  }
+    const completed = !!(comp.status && comp.status.type && comp.status.type.completed);
+    let matchupHtml, scoreHtml = '';
 
-  const completed = comp.status && comp.status.type && comp.status.type.completed;
-  let scoreHtml = '';
-  if(completed && self && opp){
-    scoreHtml = `<span class="score">${self.score}–${opp.score}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
-  } else if(completed && !self){
-    const home = competitors.find(c => c.homeAway === 'home');
-    const away = competitors.find(c => c.homeAway === 'away');
-    scoreHtml = `<span class="score">${away ? away.score : ''}–${home ? home.score : ''} Final</span>`;
-  }
+    if(selfTeamId){
+      const self = competitors.find(c => String(c.team.id) === String(selfTeamId));
+      const opp = competitors.find(c => String(c.team.id) !== String(selfTeamId));
+      if(!self || !opp) return null;
+      const prefix = self.homeAway === 'home' ? 'vs' : 'at';
+      matchupHtml = `IU ${prefix} ${opp.team.displayName}`;
+      if(completed) scoreHtml = `<span class="score">${self.score}\u2013${opp.score}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
+    } else {
+      if(!home || !away) return null;
+      matchupHtml = `${away.team.displayName} at ${home.team.displayName}`;
+      if(completed) scoreHtml = `<span class="score">${away.score}\u2013${home.score} Final</span>`;
+    }
 
-  const d = fmtDate(ev.date);
-  const net = getBroadcast(comp);
-  const watchHtml = completed
-    ? `<span class="net">Final</span>`
-    : `<span class="net">${net || 'TBD'}</span><span class="time">${d.time}</span>`;
+    const date = new Date(ev.date);
+    return {
+      date,
+      matchupHtml,
+      scoreHtml,
+      completed,
+      timeStr: fmtTime(date),
+      watch: completed ? null : watchApp(getBroadcast(comp))
+    };
+  }).filter(Boolean);
+}
 
+function dayGameHtml(e){
   return `
-    <div class="game${completed ? ' final' : ''}">
-      <div class="date">${d.weekday}<b>${d.month} ${d.day}</b></div>
-      <div class="matchup">${matchupHtml}${scoreHtml}</div>
-      <div class="watch">${watchHtml}</div>
+    <div class="day-game">
+      <div class="dg-time">${e.timeStr}</div>
+      <div class="dg-matchup">${e.matchupHtml} ${e.completed ? e.scoreHtml : ''}</div>
+      <div>${e.completed ? '<span class="net final">Final</span>' : watchPillHtml(e.watch)}</div>
     </div>`;
 }
+
+/* ---------- calendar component ---------- */
+
+function renderCalendar(containerId, events){
+  const root = document.getElementById(containerId);
+  if(!events.length){
+    root.innerHTML = `<div class="msg">No games found.</div>`;
+    return;
+  }
+
+  const upcoming = events.find(e => !e.completed) || events[events.length - 1];
+  let viewYear = upcoming.date.getFullYear();
+  let viewMonth = upcoming.date.getMonth();
+  let selectedKey = dateKey(upcoming.date);
+
+  function draw(){
+    const firstDay = new Date(viewYear, viewMonth, 1);
+    const startWeekday = firstDay.getDay();
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const monthLabel = firstDay.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+    const todayKey = dateKey(new Date());
+
+    const byDay = {};
+    events.forEach(e => {
+      if(e.date.getFullYear() === viewYear && e.date.getMonth() === viewMonth){
+        const d = e.date.getDate();
+        (byDay[d] = byDay[d] || []).push(e);
+      }
+    });
+
+    // if the selected date isn't in the month currently shown, drop it
+    const selParts = selectedKey.split('-').map(Number);
+    if(selParts[0] !== viewYear || selParts[1] !== viewMonth){
+      const firstWithEvents = Object.keys(byDay).map(Number).sort((a,b)=>a-b)[0];
+      selectedKey = firstWithEvents ? dateKey(new Date(viewYear, viewMonth, firstWithEvents)) : '';
+    }
+
+    let cells = '';
+    for(let i = 0; i < startWeekday; i++) cells += `<div class="cal-cell empty"></div>`;
+    for(let day = 1; day <= daysInMonth; day++){
+      const key = viewYear+'-'+viewMonth+'-'+day;
+      const evs = byDay[day] || [];
+      const classes = ['cal-cell'];
+      if(evs.length) classes.push('has-events');
+      if(key === todayKey) classes.push('today');
+      if(key === selectedKey) classes.push('selected');
+      cells += `<button type="button" class="${classes.join(' ')}" data-key="${key}">
+        <span class="num">${day}</span>
+        ${evs.length ? `<span class="dot-count">${evs.length}</span>` : ''}
+      </button>`;
+    }
+
+    root.innerHTML = `
+      <div class="cal-head">
+        <button type="button" class="cal-nav" data-dir="-1" aria-label="Previous month">‹</button>
+        <span class="cal-month">${monthLabel}</span>
+        <button type="button" class="cal-nav" data-dir="1" aria-label="Next month">›</button>
+      </div>
+      <div class="cal-grid cal-weekdays">
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+      </div>
+      <div class="cal-grid">${cells}</div>
+      <div class="cal-detail">
+        <div class="cal-detail-label" id="${containerId}-label"></div>
+        <div id="${containerId}-games"></div>
+      </div>`;
+
+    root.querySelectorAll('.cal-nav').forEach(btn => {
+      btn.addEventListener('click', () => {
+        viewMonth += parseInt(btn.dataset.dir, 10);
+        if(viewMonth < 0){ viewMonth = 11; viewYear--; }
+        if(viewMonth > 11){ viewMonth = 0; viewYear++; }
+        draw();
+      });
+    });
+    root.querySelectorAll('.cal-cell.has-events').forEach(btn => {
+      btn.addEventListener('click', () => { selectedKey = btn.dataset.key; draw(); });
+    });
+
+    const label = document.getElementById(containerId + '-label');
+    const gamesBox = document.getElementById(containerId + '-games');
+    const selDay = selectedKey ? parseInt(selectedKey.split('-')[2], 10) : null;
+    const selEvs = selDay ? (byDay[selDay] || []) : [];
+    if(selDay){
+      label.textContent = new Date(viewYear, viewMonth, selDay).toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
+      gamesBox.innerHTML = selEvs.length ? selEvs.map(dayGameHtml).join('') : `<div class="msg">No games this day.</div>`;
+    } else {
+      label.textContent = '';
+      gamesBox.innerHTML = `<div class="msg">No games this month.</div>`;
+    }
+  }
+
+  draw();
+}
+
+/* ---------- loaders ---------- */
 
 async function loadIU(){
   try{
     const res = await fetch(CFB_SCHEDULE_URL);
     const data = await res.json();
-    const events = (data.events || []).slice().sort((a,b)=> new Date(a.date) - new Date(b.date));
-    const box = document.getElementById('iu-schedule');
+    const events = normalizeEvents(data.events, IU_TEAM_ID).sort((a,b) => a.date - b.date);
     if(!events.length){
-      box.innerHTML = `<div class="msg">Couldn't load the schedule. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
+      document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
       return;
     }
-    box.innerHTML = events.map(ev => eventRow(ev, IU_TEAM_ID)).join('');
+    renderCalendar('iu-calendar', events);
 
-    const upcoming = events.find(ev => !(ev.competitions[0].status.type.completed));
     const nextBox = document.getElementById('next-iu-box');
+    const upcoming = events.find(e => !e.completed);
     if(upcoming){
-      const comp = upcoming.competitions[0];
-      const self = comp.competitors.find(c => String(c.team.id) === String(IU_TEAM_ID));
-      const opp = comp.competitors.find(c => String(c.team.id) !== String(IU_TEAM_ID));
-      const prefix = self.homeAway === 'home' ? 'vs' : 'at';
-      const d = fmtDate(upcoming.date);
-      const net = getBroadcast(comp);
       nextBox.innerHTML = `
         <span class="tag">Next Hoosiers kickoff</span>
-        <div class="matchup">IU ${prefix} ${opp.team.displayName}</div>
-        <div class="meta"><span>${d.dayKey}</span><span>${d.time}</span><span>${net || 'TV TBD'}</span></div>`;
+        <div class="matchup">${upcoming.matchupHtml}</div>
+        <div class="meta"><span>${upcoming.date.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'})}</span><span>${upcoming.timeStr}</span>${watchPillHtml(upcoming.watch)}</div>`;
     } else {
       nextBox.innerHTML = `<span class="tag">Season</span><div class="meta"><span>No upcoming games found — season may be complete.</span></div>`;
     }
   } catch(e){
-    document.getElementById('iu-schedule').innerHTML = `<div class="msg">Couldn't load the schedule right now. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
-    document.getElementById('next-iu-box').innerHTML = `<span class="tag">NEXT HOOSIERS KICKOFF</span><div class="meta">Unavailable right now.</div>`;
+    document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule right now. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
+    document.getElementById('next-iu-box').innerHTML = `<span class="tag">Next Hoosiers kickoff</span><div class="meta"><span>Unavailable right now.</span></div>`;
   }
 }
 
-async function loadWeek(){
-  const box = document.getElementById('nfl-week');
+async function loadNFL(){
   try{
-    const res = await fetch(NFL_WEEK_URL);
+    const res = await fetch(NFL_SEASON_URL);
     const data = await res.json();
-    const events = (data.events || []).slice().sort((a,b)=> new Date(a.date) - new Date(b.date));
-    if(!events.length){
-      box.innerHTML = `<div class="msg">No games found for this week. <a href="https://www.espn.com/nfl/schedule" target="_blank" rel="noopener">View the full schedule on ESPN</a>.</div>`;
-      return;
-    }
-    const groups = {};
-    events.forEach(ev => {
-      const key = fmtDate(ev.date).dayKey;
-      (groups[key] = groups[key] || []).push(ev);
-    });
-    box.innerHTML = Object.entries(groups).map(([day, evs]) => `
-      <div class="day-group">
-        <h3>${day}</h3>
-        ${evs.map(ev => eventRow(ev, null)).join('')}
-      </div>`).join('');
+    const events = normalizeEvents(data.events, null).sort((a,b) => a.date - b.date);
+    renderCalendar('nfl-calendar', events);
   } catch(e){
-    box.innerHTML = `<div class="msg">Couldn't load this week's games. <a href="https://www.espn.com/nfl/schedule" target="_blank" rel="noopener">View the full schedule on ESPN</a>.</div>`;
+    document.getElementById('nfl-calendar').innerHTML = `<div class="msg">Couldn't load the NFL schedule right now. <a href="https://www.espn.com/nfl/schedule" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
   }
 }
-
-async function loadTeams(){
-  const select = document.getElementById('team-select');
-  try{
-    const res = await fetch(NFL_TEAMS_URL);
-    const data = await res.json();
-    const teams = (data.sports[0].leagues[0].teams || []).map(t => t.team)
-      .sort((a,b) => a.displayName.localeCompare(b.displayName));
-    teams.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t.id;
-      opt.dataset.color = t.color || '28402f';
-      opt.textContent = t.displayName;
-      select.appendChild(opt);
-    });
-    select.addEventListener('change', () => {
-      if(select.value) loadTeamSchedule(select.value, select.options[select.selectedIndex].dataset.color);
-    });
-  } catch(e){
-    select.innerHTML = `<option value="">Couldn't load team list</option>`;
-  }
-}
-
-async function loadTeamSchedule(teamId, color){
-  const box = document.getElementById('team-schedule');
-  document.getElementById('team-bar').style.background = '#' + (color || '28402f');
-  box.innerHTML = `<div class="msg">Loading schedule…</div>`;
-  try{
-    const res = await fetch(NFL_TEAM_SCHEDULE_URL(teamId));
-    const data = await res.json();
-    const events = (data.events || []).slice().sort((a,b)=> new Date(a.date) - new Date(b.date));
-    if(!events.length){
-      box.innerHTML = `<div class="msg">No games found for this team.</div>`;
-      return;
-    }
-    box.innerHTML = events.map(ev => eventRow(ev, teamId)).join('');
-  } catch(e){
-    box.innerHTML = `<div class="msg">Couldn't load that team's schedule right now.</div>`;
-  }
-}
-
-document.getElementById('tab-week').addEventListener('click', () => {
-  document.getElementById('tab-week').classList.add('active');
-  document.getElementById('tab-team').classList.remove('active');
-  document.getElementById('panel-week').style.display = '';
-  document.getElementById('panel-team').style.display = 'none';
-});
-document.getElementById('tab-team').addEventListener('click', () => {
-  document.getElementById('tab-team').classList.add('active');
-  document.getElementById('tab-week').classList.remove('active');
-  document.getElementById('panel-team').style.display = '';
-  document.getElementById('panel-week').style.display = 'none';
-});
 
 loadIU();
-loadWeek();
-loadTeams();
+loadNFL();
 </script>
 </body>
 </html>
