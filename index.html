@@ -105,8 +105,11 @@
     border-radius:var(--radius);margin-bottom:8px;
   }
   .dg-time{font-size:0.8rem;color:var(--ink-dim);}
+  .dg-time.live{color:var(--wine);font-weight:700;letter-spacing:0.02em;}
+  .day-game.is-live{border-color:var(--wine);}
   .dg-matchup{font-size:0.98rem;}
   .score{color:var(--gold);font-size:0.85rem;margin-left:6px;}
+  .clock{color:var(--ink-dim);font-size:0.8rem;margin-left:8px;}
   .watch-pills{display:flex;flex-wrap:wrap;gap:6px;}
   .net{display:inline-block;border:1px solid var(--panel-line);background:var(--bg);padding:3px 10px;font-size:0.76rem;color:var(--ink);border-radius:999px;white-space:nowrap;}
   .net.final{opacity:0.7;}
@@ -287,6 +290,13 @@ function scoreVal(competitor){
   return s;
 }
 
+// ESPN carries each side's poll ranking on the competitor as curatedRank, using
+// 99 to mean unranked. Returns "No. 6 " (with the trailing space) or ''.
+function rankPrefix(competitor){
+  const r = competitor && competitor.curatedRank && competitor.curatedRank.current;
+  return (typeof r === 'number' && r >= 1 && r <= 25) ? `No. ${r} ` : '';
+}
+
 function startOfWeek(d){
   const copy = new Date(d);
   copy.setHours(0,0,0,0);
@@ -304,7 +314,13 @@ function normalizeEvents(rawEvents, selfTeamId){
     const competitors = comp.competitors || [];
     const home = competitors.find(c => c.homeAway === 'home');
     const away = competitors.find(c => c.homeAway === 'away');
-    const completed = !!(comp.status && comp.status.type && comp.status.type.completed);
+    const statusType = (comp.status && comp.status.type) || {};
+    const completed = !!statusType.completed;
+    // state is 'pre' | 'in' | 'post'. A game underway is NOT completed, so
+    // without this check a live game looks identical to one that hasn't
+    // kicked off yet \u2014 same scheduled time, no score.
+    const live = statusType.state === 'in';
+    const clock = live ? (statusType.shortDetail || statusType.detail || '') : '';
     let matchupHtml, scoreHtml = '';
 
     if(selfTeamId){
@@ -312,12 +328,14 @@ function normalizeEvents(rawEvents, selfTeamId){
       const opp = competitors.find(c => String(c.team.id) !== String(selfTeamId));
       if(!self || !opp) return null;
       const prefix = self.homeAway === 'home' ? 'vs' : 'at';
-      matchupHtml = `IU ${prefix} ${opp.team.displayName}`;
+      matchupHtml = `IU ${prefix} ${rankPrefix(opp)}${opp.team.displayName}`;
       if(completed) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
+      else if(live) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}</span>`;
     } else {
       if(!home || !away) return null;
       matchupHtml = `${away.team.displayName} at ${home.team.displayName}`;
       if(completed) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)} Final</span>`;
+      else if(live) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)}</span>`;
     }
 
     const date = new Date(ev.date);
@@ -329,8 +347,10 @@ function normalizeEvents(rawEvents, selfTeamId){
       matchupHtml,
       scoreHtml,
       completed,
+      live,
+      clock,
       tbd,
-      timeStr: tbd ? 'TBD' : fmtTime(date),
+      timeStr: live ? 'LIVE' : (tbd ? 'TBD' : fmtTime(date)),
       dayKey: tbd ? dayKeyEastern(date) : dayKeyLocal(date),
       dayLabel: fmtDayLabel(date, tbd),
       watch: completed ? null : resolveWatch(getBroadcast(comp))
@@ -339,10 +359,12 @@ function normalizeEvents(rawEvents, selfTeamId){
 }
 
 function dayGameHtml(e){
+  const detail = e.completed ? e.scoreHtml
+    : (e.live ? `${e.scoreHtml}${e.clock ? `<span class="clock">${e.clock}</span>` : ''}` : '');
   return `
-    <div class="day-game">
-      <div class="dg-time">${e.timeStr}</div>
-      <div class="dg-matchup">${e.matchupHtml} ${e.completed ? e.scoreHtml : ''}</div>
+    <div class="day-game${e.live ? ' is-live' : ''}">
+      <div class="dg-time${e.live ? ' live' : ''}">${e.timeStr}</div>
+      <div class="dg-matchup">${e.matchupHtml} ${detail}</div>
       <div class="watch-pills">${e.completed ? '<span class="net final">Final</span>' : watchPillHtml(e.watch)}</div>
     </div>`;
 }
@@ -458,6 +480,17 @@ async function loadIUStanding(){
   if(rankHtml || parts.length) el.innerHTML = rankHtml + parts.join('');
 }
 
+// A live score painted once at page load goes stale within a minute and still
+// looks current, which is worse than showing nothing. So while an IU game is
+// underway, re-pull the schedule on a timer. IU only: that payload is ~140KB
+// against the NFL season's ~4MB, which isn't worth re-fetching every minute.
+const LIVE_REFRESH_MS = 60000;
+let liveRefreshTimer = null;
+function scheduleLiveRefresh(events){
+  if(liveRefreshTimer){ clearTimeout(liveRefreshTimer); liveRefreshTimer = null; }
+  if(events.some(e => e.live)) liveRefreshTimer = setTimeout(loadIU, LIVE_REFRESH_MS);
+}
+
 async function loadIU(){
   try{
     const res = await fetch(CFB_SCHEDULE_URL);
@@ -474,11 +507,17 @@ async function loadIU(){
       return;
     }
     renderWeek('iu-calendar', events);
+    scheduleLiveRefresh(events);
 
     const nextBox = document.getElementById('next-iu-box');
     const upcoming = events.find(e => !e.completed);
     if(upcoming){
-      nextBox.innerHTML = `
+      nextBox.innerHTML = upcoming.live
+        ? `
+        <span class="tag">Hoosiers playing right now</span>
+        <div class="matchup">${upcoming.matchupHtml} ${upcoming.scoreHtml}</div>
+        <div class="meta"><span>${upcoming.clock || 'In progress'}</span>${watchPillHtml(upcoming.watch)}</div>`
+        : `
         <span class="tag">Next Hoosiers kickoff</span>
         <div class="matchup">${upcoming.matchupHtml}</div>
         <div class="meta"><span>${upcoming.dayLabel}</span><span>${upcoming.tbd ? 'Time TBD' : upcoming.timeStr}</span>${watchPillHtml(upcoming.watch)}</div>`;
