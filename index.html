@@ -110,6 +110,8 @@
   .dg-matchup{font-size:0.98rem;}
   .score{color:var(--gold);font-size:0.85rem;margin-left:6px;}
   .clock{color:var(--ink-dim);font-size:0.8rem;margin-left:8px;}
+  .round{color:var(--sage);font-size:0.8rem;margin-left:8px;}
+  .opp-logo{height:20px;width:20px;object-fit:contain;vertical-align:-5px;margin-right:8px;}
   .watch-pills{display:flex;flex-wrap:wrap;gap:6px;}
   .net{display:inline-block;border:1px solid var(--panel-line);background:var(--bg);padding:3px 10px;font-size:0.76rem;color:var(--ink);border-radius:999px;white-space:nowrap;}
   .net.final{opacity:0.7;}
@@ -290,6 +292,14 @@ function scoreVal(competitor){
   return s;
 }
 
+// Same idea as setLogo(): start hidden and only reveal once the image actually
+// loads, so a dead logo URL leaves a clean row rather than a broken-image icon.
+function logoImg(href){
+  if(!href) return '';
+  return `<img class="opp-logo" src="${href}" alt="" style="display:none" `
+    + `onload="this.style.display='inline-block'" onerror="this.remove()">`;
+}
+
 // ESPN carries each side's poll ranking on the competitor as curatedRank, using
 // 99 to mean unranked. Returns "No. 6 " (with the trailing space) or ''.
 function rankPrefix(competitor){
@@ -321,6 +331,12 @@ function normalizeEvents(rawEvents, selfTeamId){
     // kicked off yet \u2014 same scheduled time, no score.
     const live = statusType.state === 'in';
     const clock = live ? (statusType.shortDetail || statusType.detail || '') : '';
+    // notes[].headline covers three separate cases: playoff round names (where
+    // the teams are still placeholders), "Flex Game: 12/26 or 12/27" (where the
+    // date itself may still move), and international games (which is why a
+    // kickoff shows up at 9:30am).
+    const note = (Array.isArray(comp.notes) && comp.notes.length && comp.notes[0].headline)
+      ? comp.notes[0].headline : '';
     let matchupHtml, scoreHtml = '';
 
     if(selfTeamId){
@@ -328,12 +344,22 @@ function normalizeEvents(rawEvents, selfTeamId){
       const opp = competitors.find(c => String(c.team.id) !== String(selfTeamId));
       if(!self || !opp) return null;
       const prefix = self.homeAway === 'home' ? 'vs' : 'at';
-      matchupHtml = `IU ${prefix} ${rankPrefix(opp)}${opp.team.displayName}`;
+      const oppLogo = (Array.isArray(opp.team.logos) && opp.team.logos.length) ? opp.team.logos[0].href : '';
+      matchupHtml = `${logoImg(oppLogo)}IU ${prefix} ${rankPrefix(opp)}${opp.team.displayName}`;
       if(completed) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
       else if(live) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}</span>`;
     } else {
       if(!home || !away) return null;
-      matchupHtml = `${away.team.displayName} at ${home.team.displayName}`;
+      // Playoff seeding isn't set until January, so ESPN fills both sides with a
+      // placeholder team (id -1, name "TBD"). Rendered literally that's 13 rows
+      // of "TBD at TBD"; the note names the round instead.
+      const placeholder = String(home.team.id) === '-1' || String(away.team.id) === '-1';
+      if(placeholder){
+        matchupHtml = note || 'Playoff game \u2014 teams to be determined';
+      } else {
+        matchupHtml = `${away.team.displayName} at ${home.team.displayName}`;
+        if(note) matchupHtml += ` <span class="round">${note}</span>`;
+      }
       if(completed) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)} Final</span>`;
       else if(live) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)}</span>`;
     }
@@ -434,6 +460,17 @@ function setLogo(id, url){
   img.src = url;
 }
 
+// Prefers the gamesPlayed stat; falls back to summing the "W-L" summary if the
+// stats array isn't there.
+function gamesPlayed(recordItem){
+  if(!recordItem) return 0;
+  const stat = Array.isArray(recordItem.stats)
+    ? recordItem.stats.find(s => s.name === 'gamesPlayed') : null;
+  if(stat && !isNaN(Number(stat.value))) return Number(stat.value);
+  const nums = String(recordItem.summary || '').match(/\d+/g);
+  return nums ? nums.reduce((a,b) => a + Number(b), 0) : 0;
+}
+
 // Record + latest AP Poll standing for the IU section header. Purely
 // decorative: each half is independent, and anything that doesn't come back in
 // the expected shape is simply left out rather than shown as an error.
@@ -446,10 +483,17 @@ async function loadIUStanding(){
   try{
     const res = await fetch(CFB_TEAM_URL);
     const data = await res.json();
-    const items = data && data.team && data.team.record && Array.isArray(data.team.record.items)
-      ? data.team.record.items : [];
+    const team = (data && data.team) || {};
+    const items = team.record && Array.isArray(team.record.items) ? team.record.items : [];
     const overall = items.find(i => i.type === 'total') || items[0];
     if(overall && overall.summary) parts.push(`<span>${overall.summary}</span>`);
+
+    // standingSummary reads "1st in Big Ten" before a single game is played,
+    // because at 0-0 everyone is tied for first. Only show it once the record
+    // means something.
+    if(team.standingSummary && gamesPlayed(overall) > 0){
+      parts.push(`<span>${team.standingSummary}</span>`);
+    }
   } catch(e){ /* leave the record out */ }
 
   try{
