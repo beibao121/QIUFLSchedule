@@ -242,7 +242,7 @@
 
 <footer>
   <div class="wrap">
-    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Prime Video, Hulu, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Win chance is ESPN's own projection, not a betting line. Broadcasts can change, so it's worth double-checking close to kickoff.
+    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Prime Video, Hulu, Disney+, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Win chance is ESPN's own projection, not a betting line. Broadcasts can change, so it's worth double-checking close to kickoff.
   </div>
 </footer>
 
@@ -290,7 +290,7 @@ function getBroadcast(competition){
 
 // Maps a single broadcast network name to the app to open on Apple TV, based
 // on the subscription lineup: Paramount+, Peacock, Netflix, Prime Video, Hulu,
-// Fox One.
+// Disney+ (which carries ESPN on her plan), and Fox One.
 //
 // There is deliberately no catch-all here. A live-TV bundle used to cover
 // whatever didn't match, but without one, anything unmatched genuinely isn't
@@ -305,6 +305,11 @@ function watchApp(networkRaw){
   if(n.includes('netflix')) return {app:'Netflix', missing:false};
   if(n.includes('prime video') || n.includes('amazon')) return {app:'Prime Video', missing:false};
   if(n.includes('hulu')) return {app:'Hulu', missing:false};
+  // ESPN's channels play inside the Disney+ app on her plan. Covers ESPN2,
+  // ESPNU and ESPN+ too, which are part of the same package. ABC is left out
+  // deliberately — every ABC game this season is an ESPN simulcast, so the
+  // ESPN half already answers it, and whether ABC alone would work is a guess.
+  if(n.includes('espn')) return {app:'Disney+', missing:false};
   // Fox One carries FOX, FS1/FS2 and Big Ten Network. That matters more than it
   // looks for this page: the Big Ten's TV rights sit with FOX, CBS, NBC and
   // BTN, so between Fox One, Paramount+ and Peacock every IU regular-season
