@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F8F5EE">
 <meta name="apple-mobile-web-app-title" content="Hoosiers &amp; NFL">
+<!-- Launch from the home screen without Safari's chrome. "default" keeps the
+     status bar opaque with dark text, which suits the ivory background and
+     leaves the page starting below it; "black-translucent" would pull content
+     up underneath the clock instead. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Hoosiers &amp; NFL — 2026 Schedule</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%88%3C/text%3E%3C/svg%3E">
 <!-- iOS ignores SVG here and needs a real PNG, otherwise Add to Home Screen
@@ -58,6 +65,9 @@
 
   nav{
     position:sticky;top:0;z-index:20;
+    /* Zero in Safari and with an opaque status bar; guards the nav from sitting
+       under the clock if this ever runs in a fullscreen context. */
+    padding-top:env(safe-area-inset-top);
     background:rgba(248,245,238,0.9);
     /* Safari only accepted the prefixed form until v18, so without this the
        blur silently does nothing on an iPhone a version or two behind. */
