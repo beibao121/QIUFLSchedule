@@ -186,7 +186,7 @@
 
 <footer>
   <div class="wrap">
-    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Hulu, and FUBO — and leaves out YouTube TV on purpose. Broadcasts can change, so it's worth double-checking close to kickoff.
+    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Hulu, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Broadcasts can change, so it's worth double-checking close to kickoff.
   </div>
 </footer>
 
@@ -195,6 +195,10 @@ const IU_TEAM_ID = 84;
 const CFB_SCHEDULE_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}/schedule?season=2026`;
 const CFB_TEAM_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}`;
 const CFB_RANKINGS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/rankings';
+// The team schedule endpoint omits score entirely while a game is in progress —
+// it only appears once the game is final. The scoreboard carries it live, so a
+// game underway needs this second call to show a running score.
+const CFB_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=400';
 const NFL_SEASON_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20260901-20270215&limit=1000';
 
 // Kickoffs that haven't been announced yet come back from ESPN with
@@ -220,22 +224,27 @@ function getBroadcast(competition){
 }
 
 // Maps a single broadcast network name to the app to open on Apple TV, based
-// on the subscription lineup: Paramount+, Peacock, Netflix, Hulu, FUBO (no
-// YouTube TV).
+// on the subscription lineup: Paramount+, Peacock, Netflix, Hulu, Fox One.
+//
+// There is deliberately no catch-all here. A live-TV bundle used to cover
+// whatever didn't match, but without one, anything unmatched genuinely isn't
+// watchable on these apps — so it falls through with missing:true and keeps its
+// own name, letting the row say plainly where the game actually is rather than
+// naming an app that wouldn't work.
 function watchApp(networkRaw){
   if(!networkRaw) return {app:'Check listings', missing:false};
   const n = networkRaw.toLowerCase();
   if(n.includes('paramount+') || n.includes('cbs')) return {app:'Paramount+', missing:false};
-  if(n.includes('peacock')) return {app:'Peacock', missing:false};
+  if(n.includes('peacock') || n.includes('nbc')) return {app:'Peacock', missing:false};
   if(n.includes('netflix')) return {app:'Netflix', missing:false};
-  if(n.includes('nbc')) return {app:'Peacock', missing:false};
-  if(n.includes('prime video') || n.includes('amazon')) return {app:'Prime Video', missing:true};
-  if(n.includes('espn+')) return {app:'ESPN+', missing:true};
   if(n.includes('hulu')) return {app:'Hulu', missing:false};
-  if(n.includes('youtube')) return {app:'FUBO', missing:false};
-  // FOX, ABC, ESPN, ESPN2, ESPNU, NFL Network, BTN, SEC/ACC Network, TNT,
-  // truTV, USA, The CW, and most local affiliates all live in the FUBO lineup.
-  return {app:'FUBO', missing:false};
+  // Fox One carries FOX, FS1/FS2 and Big Ten Network. That matters more than it
+  // looks for this page: the Big Ten's TV rights sit with FOX, CBS, NBC and
+  // BTN, so between Fox One, Paramount+ and Peacock every IU regular-season
+  // game should land on something she has.
+  if(n.includes('fox') || n.includes('fs1') || n.includes('fs2')
+     || n.includes('big ten') || n === 'btn') return {app:'Fox One', missing:false};
+  return {app:networkRaw, missing:true};
 }
 
 // Resolves a game's full list of broadcast networks into the distinct apps
@@ -330,6 +339,13 @@ function countdownText(e){
   return `In ${plural(days,'day')}`;
 }
 
+// Renders a score pair only when both halves actually exist. Without this a
+// live game with no score yet rendered as a bare "–".
+function pairScoreHtml(a, b){
+  if(a === '' || b === '' || a === undefined || b === undefined) return '';
+  return `<span class="score">${a}–${b}</span>`;
+}
+
 // The college schedule endpoint returns score as {value, displayValue} while
 // the NFL scoreboard returns a plain string, so unwrap whichever we got.
 function scoreVal(competitor){
@@ -400,7 +416,7 @@ function normalizeEvents(rawEvents, selfTeamId){
       const siteHtml = `<span class="site${site === 'Home' ? ' home' : ''}">${site}</span>`;
       matchupHtml = `${logoImg(oppLogo)}IU ${prefix} ${rankPrefix(opp)}${opp.team.displayName} ${siteHtml}`;
       if(completed) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
-      else if(live) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}</span>`;
+      else if(live) scoreHtml = pairScoreHtml(scoreVal(self), scoreVal(opp));
     } else {
       if(!home || !away) return null;
       // Playoff seeding isn't set until January, so ESPN fills both sides with a
@@ -414,7 +430,7 @@ function normalizeEvents(rawEvents, selfTeamId){
         if(note) matchupHtml += ` <span class="round">${note}</span>`;
       }
       if(completed) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)} Final</span>`;
-      else if(live) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)}</span>`;
+      else if(live) scoreHtml = pairScoreHtml(scoreVal(away), scoreVal(home));
     }
 
     const date = new Date(ev.date);
@@ -422,6 +438,7 @@ function normalizeEvents(rawEvents, selfTeamId){
     // absent, assume the timestamp is real.
     const tbd = comp.timeValid === false;
     return {
+      id: ev.id,
       date,
       matchupHtml,
       scoreHtml,
@@ -607,6 +624,29 @@ function scheduleLiveRefresh(events){
   if(events.some(e => e.live)) liveRefreshTimer = setTimeout(loadIU, LIVE_REFRESH_MS);
 }
 
+// Fills in the running score for any IU game currently in progress, matching
+// scoreboard entries to schedule events by id. Best effort: if the call fails
+// or the game isn't listed, the row keeps its clock and simply shows no score.
+async function attachLiveScores(events){
+  const live = events.filter(e => e.live);
+  if(!live.length) return;
+  try{
+    const data = await (await fetch(CFB_SCOREBOARD_URL)).json();
+    const byId = new Map((data.events || []).map(e => [String(e.id), e]));
+    live.forEach(e => {
+      const src = byId.get(String(e.id));
+      const comps = src && src.competitions && src.competitions[0]
+        ? (src.competitions[0].competitors || []) : [];
+      const self = comps.find(c => String(c.team.id) === String(IU_TEAM_ID));
+      const opp = comps.find(c => String(c.team.id) !== String(IU_TEAM_ID));
+      if(self && opp){
+        const html = pairScoreHtml(scoreVal(self), scoreVal(opp));
+        if(html) e.scoreHtml = html;
+      }
+    });
+  } catch(err){ /* leave the live rows without a score */ }
+}
+
 async function loadIU(){
   try{
     const res = await fetch(CFB_SCHEDULE_URL);
@@ -622,6 +662,7 @@ async function loadIU(){
       document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
       return;
     }
+    await attachLiveScores(events);
     renderWeek('iu-calendar', events);
     scheduleLiveRefresh(events);
 
