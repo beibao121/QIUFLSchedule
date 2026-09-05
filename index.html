@@ -111,10 +111,13 @@
   .score{color:var(--gold);font-size:0.85rem;margin-left:6px;}
   .clock{color:var(--ink-dim);font-size:0.8rem;margin-left:8px;}
   .round{color:var(--sage);font-size:0.8rem;margin-left:8px;}
+  .site{color:var(--ink-dim);font-size:0.78rem;margin-left:8px;}
+  .site.home{color:var(--sage);font-weight:600;}
   .opp-logo{height:20px;width:20px;object-fit:contain;vertical-align:-5px;margin-right:8px;}
   .watch-pills{display:flex;flex-wrap:wrap;gap:6px;}
   .net{display:inline-block;border:1px solid var(--panel-line);background:var(--bg);padding:3px 10px;font-size:0.76rem;color:var(--ink);border-radius:999px;white-space:nowrap;}
   .net.final{opacity:0.7;}
+  .net.pending{color:var(--ink-dim);}
   .net.only{
     font-weight:600;
     border-color:var(--gold);background:#FBF0D9;color:#8A6412;
@@ -252,7 +255,10 @@ function resolveWatch(networkNames){
 }
 
 function watchPillHtml(watch){
-  if(!watch || watch.unknown) return `<span class="net">Check listings</span>`;
+  // No broadcast on the event at all. "Check listings" implied there was
+  // somewhere to go and look, when really the network just hasn't been picked
+  // yet — conferences assign most games about two weeks out.
+  if(!watch || watch.unknown) return `<span class="net pending">TV not announced yet</span>`;
   if(watch.onlyMissing){
     const names = watch.missing.map(m => m.app).join(' or ');
     return `<span class="net only">Only on ${names}</span>`;
@@ -345,7 +351,13 @@ function normalizeEvents(rawEvents, selfTeamId){
       if(!self || !opp) return null;
       const prefix = self.homeAway === 'home' ? 'vs' : 'at';
       const oppLogo = (Array.isArray(opp.team.logos) && opp.team.logos.length) ? opp.team.logos[0].href : '';
-      matchupHtml = `${logoImg(oppLogo)}IU ${prefix} ${rankPrefix(opp)}${opp.team.displayName}`;
+      // "vs" and "at" already encode this, but only if you know the convention,
+      // so say it outright. Bowl and championship games are played at neither
+      // team's stadium, which ESPN flags as neutralSite.
+      const site = comp.neutralSite ? 'Neutral site'
+        : (self.homeAway === 'home' ? 'Home' : 'Away');
+      const siteHtml = `<span class="site${site === 'Home' ? ' home' : ''}">${site}</span>`;
+      matchupHtml = `${logoImg(oppLogo)}IU ${prefix} ${rankPrefix(opp)}${opp.team.displayName} ${siteHtml}`;
       if(completed) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}${self.winner ? ' W' : (opp.winner ? ' L' : '')}</span>`;
       else if(live) scoreHtml = `<span class="score">${scoreVal(self)}\u2013${scoreVal(opp)}</span>`;
     } else {
