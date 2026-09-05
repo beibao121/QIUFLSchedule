@@ -137,9 +137,22 @@
   footer{padding:30px 0 60px;color:var(--ink-dim);font-size:0.82rem;}
   footer a{color:var(--ink-dim);}
 
+  /* This page is mostly read on a phone, so the small screen gets real tap
+     targets and tighter chrome rather than just a reflowed desktop layout. */
   @media(max-width:560px){
     .day-game{grid-template-columns:1fr;gap:6px;}
     .navlinks{gap:14px;}
+    /* 44px is the minimum comfortable touch target; these were 34px, and the
+       week arrows are the main thing she actually taps. */
+    .cal-nav{width:44px;height:44px;font-size:1.3rem;}
+    .navlinks a{padding:11px 8px;}
+    /* Desktop spacing costs about a third of a phone screen before any game
+       is visible. */
+    .hero{padding:34px 0 28px;}
+    section{padding:28px 0;}
+    .kickoff-box{margin-top:20px;padding:16px 18px;}
+    .section-head{margin-bottom:16px;}
+    .cal-head{margin-bottom:14px;}
   }
 </style>
 </head>
@@ -193,7 +206,7 @@
 
 <footer>
   <div class="wrap">
-    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Hulu, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Broadcasts can change, so it's worth double-checking close to kickoff.
+    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Prime Video, Hulu, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Broadcasts can change, so it's worth double-checking close to kickoff.
   </div>
 </footer>
 
@@ -234,7 +247,8 @@ function getBroadcast(competition){
 }
 
 // Maps a single broadcast network name to the app to open on Apple TV, based
-// on the subscription lineup: Paramount+, Peacock, Netflix, Hulu, Fox One.
+// on the subscription lineup: Paramount+, Peacock, Netflix, Prime Video, Hulu,
+// Fox One.
 //
 // There is deliberately no catch-all here. A live-TV bundle used to cover
 // whatever didn't match, but without one, anything unmatched genuinely isn't
@@ -247,6 +261,7 @@ function watchApp(networkRaw){
   if(n.includes('paramount+') || n.includes('cbs')) return {app:'Paramount+', missing:false};
   if(n.includes('peacock') || n.includes('nbc')) return {app:'Peacock', missing:false};
   if(n.includes('netflix')) return {app:'Netflix', missing:false};
+  if(n.includes('prime video') || n.includes('amazon')) return {app:'Prime Video', missing:false};
   if(n.includes('hulu')) return {app:'Hulu', missing:false};
   // Fox One carries FOX, FS1/FS2 and Big Ten Network. That matters more than it
   // looks for this page: the Big Ten's TV rights sit with FOX, CBS, NBC and
