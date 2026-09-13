@@ -153,6 +153,7 @@
   .site{color:var(--ink-dim);font-size:0.78rem;margin-left:8px;}
   .site.home{color:var(--sage);font-weight:600;}
   .odds{color:var(--ink-dim);font-size:0.78rem;margin-left:8px;}
+  .odds strong{color:var(--ink);font-weight:600;}
   /* Wine because the reason to care about him is that he played for IU. */
   .mendoza{
     display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;
@@ -261,7 +262,7 @@
 
 <footer>
   <div class="wrap">
-    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Prime Video, Hulu, Disney+, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Win chance is ESPN's own projection, not a betting line. Broadcasts can change, so it's worth double-checking close to kickoff.
+    Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Prime Video, Hulu, Disney+, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Win chances come from betting odds for NFL games, with the bookmaker's margin taken out, and from ESPN's own projection for Indiana — sportsbooks don't post college lines this far ahead. Either way it's an estimate, not a forecast. Broadcasts can change, so it's worth double-checking close to kickoff.
   </div>
 </footer>
 
@@ -590,11 +591,12 @@ function normalizeEvents(rawEvents, selfTeamId){
   }).filter(Boolean);
 }
 
-// Names the side that's ahead and by how much — "Cowboys 60%". Nicknames, not
-// abbreviations, since the whole page avoids those.
+// Names the side that's ahead and by how much. Says "to win" rather than
+// leaving a bare "Falcons 52%", which doesn't tell you what the number is.
+// Nicknames, not abbreviations, since the whole page avoids those.
 function winOddsHtml(e){
   if(!e.win || e.completed) return '';
-  return `<span class="odds">${e.win.team} ${formatPct(e.win.pct)}</span>`;
+  return `<span class="odds">${e.win.team} <strong>${formatPct(e.win.pct)}</strong> to win</span>`;
 }
 
 function dayGameHtml(e){
