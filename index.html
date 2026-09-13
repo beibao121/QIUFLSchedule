@@ -108,8 +108,11 @@
   .kickoff-box .countdown{color:var(--ink);font-weight:600;}
   .kickoff-box .winprob{color:var(--ink-dim);}
   .kickoff-box .winprob strong{color:var(--ink);font-weight:600;}
-  #next-colts-box{margin-top:0;margin-bottom:24px;}
+  /* Two team boxes sit side by side where there's room and stack on a phone. */
+  .box-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;}
+  .box-row .kickoff-box{margin-top:0;}
   #next-colts-box .tag{color:var(--colts);}
+  #next-raiders-box .tag{color:#0B0B0B;}
 
   /* The nav is sticky, so without this the "Hoosiers"/"NFL" links scroll the
      section heading up underneath it. */
@@ -149,6 +152,15 @@
   .round{color:var(--sage);font-size:0.8rem;margin-left:8px;}
   .site{color:var(--ink-dim);font-size:0.78rem;margin-left:8px;}
   .site.home{color:var(--sage);font-weight:600;}
+  .odds{color:var(--ink-dim);font-size:0.78rem;margin-left:8px;}
+  /* Wine because the reason to care about him is that he played for IU. */
+  .mendoza{
+    display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;
+    font-size:0.72rem;font-weight:600;white-space:nowrap;
+    color:var(--wine);background:var(--wine-wash);border:1px solid #E3CDD0;
+  }
+  .mendoza.in{color:#FFF;background:var(--wine);border-color:var(--wine);}
+  .mendoza.quiet{color:var(--ink-dim);background:transparent;border-color:var(--panel-line);font-weight:500;}
   .opp-logo{height:20px;width:20px;object-fit:contain;vertical-align:-5px;margin-right:8px;}
   .watch-pills{display:flex;flex-wrap:wrap;gap:6px;}
   .net{display:inline-block;border:1px solid var(--panel-line);background:var(--bg);padding:3px 10px;font-size:0.76rem;color:var(--ink);border-radius:999px;white-space:nowrap;}
@@ -185,6 +197,7 @@
     .kickoff-box{margin-top:20px;padding:16px 18px;}
     .section-head{margin-bottom:16px;}
     .cal-head{margin-bottom:14px;}
+    .box-row{grid-template-columns:1fr;gap:12px;margin-bottom:20px;}
   }
 </style>
 </head>
@@ -232,9 +245,15 @@
         <h2>NFL</h2>
       </div>
     </div>
-    <div class="kickoff-box" id="next-colts-box">
-      <span class="tag">Next Colts game</span>
-      <div class="msg" style="padding:0;">Loading…</div>
+    <div class="box-row">
+      <div class="kickoff-box" id="next-colts-box">
+        <span class="tag">Next Colts game</span>
+        <div class="msg" style="padding:0;">Loading…</div>
+      </div>
+      <div class="kickoff-box" id="next-raiders-box">
+        <span class="tag">Next Raiders game</span>
+        <div class="msg" style="padding:0;">Loading…</div>
+      </div>
     </div>
     <div id="nfl-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
@@ -251,6 +270,12 @@ const IU_TEAM_ID = 84;
 // The local NFL team — their games get highlighted in the NFL list, which is
 // otherwise an undifferentiated wall of all 32 teams.
 const COLTS_TEAM_ID = 11;
+// Fernando Mendoza quarterbacked IU before the Raiders drafted him, so his
+// games are worth flagging even though the Raiders otherwise aren't.
+const RAIDERS_TEAM_ID = 13;
+const MENDOZA_ATHLETE_ID = 4837248;
+const NFL_DEPTH_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/teams/${RAIDERS_TEAM_ID}/depthcharts`;
+const NFL_SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=';
 const CFB_SCHEDULE_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}/schedule?season=2026`;
 const CFB_TEAM_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}`;
 const CFB_RANKINGS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/rankings';
@@ -480,7 +505,8 @@ function normalizeEvents(rawEvents, selfTeamId){
     // kickoff shows up at 9:30am).
     const note = (Array.isArray(comp.notes) && comp.notes.length && comp.notes[0].headline)
       ? comp.notes[0].headline : '';
-    let matchupHtml, scoreHtml = '', isColts = false, selfHome = false;
+    let matchupHtml, scoreHtml = '', isColts = false, selfHome = false,
+        isRaiders = false, win = null, winPair = null, homeTeamId = null;
 
     if(selfTeamId){
       const self = competitors.find(c => String(c.team.id) === String(selfTeamId));
@@ -507,15 +533,33 @@ function normalizeEvents(rawEvents, selfTeamId){
       if(placeholder){
         matchupHtml = note || 'Playoff game \u2014 teams to be determined';
       } else {
-        // Only the Colts get a logo here. Doing it for every team would mean
-        // ~570 image requests across a full season's NFL list.
-        const colts = [away, home].find(c => String(c.team.id) === String(COLTS_TEAM_ID));
-        matchupHtml = `${colts ? logoImg(teamLogoHref(colts.team)) : ''}`
+        // Only the two followed teams get a logo. Doing it for every team would
+        // mean ~570 image requests across a full season's NFL list.
+        const sides = [away, home];
+        const marked = sides.find(c => String(c.team.id) === String(COLTS_TEAM_ID))
+                    || sides.find(c => String(c.team.id) === String(RAIDERS_TEAM_ID));
+        matchupHtml = `${marked ? logoImg(teamLogoHref(marked.team)) : ''}`
           + `${away.team.displayName} at ${home.team.displayName}`;
         if(note) matchupHtml += ` <span class="round">${note}</span>`;
-        isColts = !!colts;
+        isColts = sides.some(c => String(c.team.id) === String(COLTS_TEAM_ID));
       }
-      if(completed) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)} Final</span>`;
+      isRaiders = [away, home].some(c => String(c.team.id) === String(RAIDERS_TEAM_ID));
+      homeTeamId = String(home.team.id);
+      // Keep both sides: rows show whichever is ahead, but the Colts box needs
+      // the Colts' own number, which isn't always the leading one.
+      winPair = completed ? null : nflWinPct(comp);
+      if(winPair){
+        const homeAhead = winPair.home >= winPair.away;
+        const leader = homeAhead ? home : away;
+        win = {
+          pct: homeAhead ? winPair.home : winPair.away,
+          team: leader.team.name || leader.team.displayName,
+          live: winPair.live
+        };
+      }
+      // No "Final" here \u2014 the pills column already carries that, and with both
+      // it read "27\u201333 Final Final".
+      if(completed) scoreHtml = `<span class="score">${scoreVal(away)}\u2013${scoreVal(home)}</span>`;
       else if(live) scoreHtml = pairScoreHtml(scoreVal(away), scoreVal(home));
     }
 
@@ -531,6 +575,10 @@ function normalizeEvents(rawEvents, selfTeamId){
       completed,
       live,
       isColts,
+      isRaiders,
+      win,
+      winPair,
+      homeTeamId,
       selfHome,
       clock,
       tbd,
@@ -542,13 +590,20 @@ function normalizeEvents(rawEvents, selfTeamId){
   }).filter(Boolean);
 }
 
+// Names the side that's ahead and by how much — "Cowboys 60%". Nicknames, not
+// abbreviations, since the whole page avoids those.
+function winOddsHtml(e){
+  if(!e.win || e.completed) return '';
+  return `<span class="odds">${e.win.team} ${formatPct(e.win.pct)}</span>`;
+}
+
 function dayGameHtml(e){
   const detail = e.completed ? e.scoreHtml
     : (e.live ? `${e.scoreHtml}${e.clock ? `<span class="clock">${e.clock}</span>` : ''}` : '');
   return `
     <div class="day-game${e.isColts ? ' is-colts' : ''}${e.live ? ' is-live' : ''}">
       <div class="dg-time${e.live ? ' live' : ''}">${e.timeStr}</div>
-      <div class="dg-matchup">${e.matchupHtml} ${detail}</div>
+      <div class="dg-matchup">${e.matchupHtml} ${detail}${winOddsHtml(e)}${mendozaBadge(e)}</div>
       <div class="watch-pills">${e.completed ? '<span class="net final">Final</span>' : watchPillHtml(e.watch)}</div>
     </div>`;
 }
@@ -714,6 +769,33 @@ function favouriteLabel(pct){
   return 'Big underdog';
 }
 
+// American moneyline to implied probability, as a 0-1 fraction.
+function impliedFromMoneyline(raw){
+  const v = parseInt(String(raw).replace('+', ''), 10);
+  if(isNaN(v) || v === 0) return null;
+  return v > 0 ? 100 / (v + 100) : Math.abs(v) / (Math.abs(v) + 100);
+}
+
+// Win chance for an NFL game, taken from data the season payload already
+// carries. Unlike the college side this really is odds-based: books post NFL
+// lines well ahead, so 258 of the 285 games have a moneyline on them.
+function nflWinPct(comp){
+  const p = comp.situation && comp.situation.lastPlay && comp.situation.lastPlay.probability;
+  if(p && typeof p.homeWinPercentage === 'number'){
+    return { home: p.homeWinPercentage * 100, away: p.awayWinPercentage * 100, live: true };
+  }
+  const book = Array.isArray(comp.odds) && comp.odds.length ? comp.odds[0] : null;
+  const ml = book && book.moneyline;
+  const rawHome = ml && ml.home && ml.home.close && ml.home.close.odds;
+  const rawAway = ml && ml.away && ml.away.close && ml.away.close.odds;
+  const ih = impliedFromMoneyline(rawHome), ia = impliedFromMoneyline(rawAway);
+  if(ih === null || ia === null) return null;
+  // The two sides sum to more than 1 — that gap is the book's margin. Dividing
+  // through by the total strips it out so the pair reads as a fair 100%.
+  const total = ih + ia;
+  return { home: ih / total * 100, away: ia / total * 100, live: false };
+}
+
 // Rounds to a whole number, except at the extremes where rounding would print
 // 100% or 0% — neither is ever true, and 99.9% is the honest figure anyway.
 function formatPct(pct){
@@ -841,10 +923,88 @@ async function loadIU(){
   }
 }
 
+// Where Mendoza sits on the Raiders' QB depth chart. Rank 1 means he's the
+// listed starter. Returns null if anything is off, so the badge just doesn't
+// appear rather than claiming something wrong.
+async function fetchMendozaRank(){
+  try{
+    const d = await (await fetch(NFL_DEPTH_URL)).json();
+    for(const formation of (d.items || [])){
+      const qb = formation.positions && formation.positions.qb;
+      if(!qb) continue;
+      for(const slot of (qb.athletes || [])){
+        const ref = slot.athlete && slot.athlete.$ref;
+        if(ref && ref.indexOf(`/athletes/${MENDOZA_ATHLETE_ID}`) !== -1) return slot.rank;
+      }
+    }
+  } catch(e){ /* no badge */ }
+  return null;
+}
+
+// Whether he's actually taken a snap in a game that's underway. The boxscore
+// only lists players with recorded stats, so his presence there is the signal —
+// it's how you can tell he came in, rather than inferring from the depth chart.
+async function mendozaIsPlaying(eventId){
+  try{
+    const s = await (await fetch(NFL_SUMMARY_URL + eventId)).json();
+    for(const teamBlock of ((s.boxscore && s.boxscore.players) || [])){
+      for(const cat of (teamBlock.statistics || [])){
+        for(const a of (cat.athletes || [])){
+          if(a.athlete && String(a.athlete.id) === String(MENDOZA_ATHLETE_ID)) return true;
+        }
+      }
+    }
+  } catch(e){ /* treat as not playing */ }
+  return false;
+}
+
+// Resolved once per load and read while rendering rows.
+let mendozaRank = null;
+let mendozaPlaying = false;
+
+function mendozaBadge(e){
+  if(!e.isRaiders || e.completed) return '';
+  if(e.live) return mendozaPlaying
+    ? `<span class="mendoza in">Mendoza is in</span>`
+    : `<span class="mendoza quiet">Mendoza QB${mendozaRank || '?'}</span>`;
+  if(mendozaRank === 1) return `<span class="mendoza">Mendoza starting</span>`;
+  if(mendozaRank) return `<span class="mendoza quiet">Mendoza QB${mendozaRank}</span>`;
+  return '';
+}
+
+// Renders one team's "next game" box: the matchup, a countdown, that team's own
+// side of the win chance (not necessarily the leading one), and for the Raiders
+// the Mendoza badge, since he's the reason that box is there at all.
+function renderTeamBox({ boxId, key, teamId, match, labels, events }){
+  const next = events.find(e => match(e) && !e.completed);
+  const box = document.getElementById(boxId);
+  if(!box) return;
+  box.innerHTML = kickoffBoxHtml(next, labels, `${key}-countdown`, `${key}-winprob`);
+  if(!next) return;
+  startCountdown(next, `${key}-countdown`);
+
+  const slot = document.getElementById(`${key}-winprob`);
+  if(next.winPair && slot){
+    const isHome = String(next.homeTeamId) === String(teamId);
+    const pct = isHome ? next.winPair.home : next.winPair.away;
+    slot.outerHTML = winProbHtml(pct, next.winPair.live) || '';
+  }
+  const badge = mendozaBadge(next);
+  if(badge){
+    const matchup = box.querySelector('.matchup');
+    if(matchup) matchup.insertAdjacentHTML('beforeend', ' ' + badge);
+  }
+}
+
 async function loadNFL(){
   try{
-    const res = await fetch(NFL_SEASON_URL);
-    const data = await res.json();
+    // Depth chart runs alongside the season payload rather than after it — it's
+    // a small independent call and there's no reason to serialise them.
+    const [data, rank] = await Promise.all([
+      fetch(NFL_SEASON_URL).then(r => r.json()),
+      fetchMendozaRank()
+    ]);
+    mendozaRank = rank;
 
     const leagueLogo = (Array.isArray(data.leagues) && data.leagues[0] && Array.isArray(data.leagues[0].logos) && data.leagues[0].logos.length)
       ? data.leagues[0].logos[0].href
@@ -852,18 +1012,29 @@ async function loadNFL(){
     setLogo('nfl-logo', leagueLogo);
 
     const events = normalizeEvents(data.events, null).sort((a,b) => a.date - b.date);
+
+    // Only costs a request when the Raiders are actually mid-game.
+    const liveRaiders = events.find(e => e.isRaiders && e.live);
+    if(liveRaiders) mendozaPlaying = await mendozaIsPlaying(liveRaiders.id);
+
     renderWeek('nfl-calendar', events);
 
-    // Finding the next Colts game otherwise means paging through a couple of
-    // hundred rows, which is a lot of thumb on a phone.
-    const nextColts = events.find(e => e.isColts && !e.completed);
-    document.getElementById('next-colts-box').innerHTML = kickoffBoxHtml(nextColts, {
-      live: 'Colts playing right now',
-      next: 'Next Colts game',
-      none: 'Colts',
-      noneText: 'No upcoming games found — the season may be complete.'
-    }, 'colts-countdown');
-    if(nextColts) startCountdown(nextColts, 'colts-countdown');
+    // Finding either team's next game otherwise means paging through a couple
+    // of hundred rows, which is a lot of thumb on a phone.
+    renderTeamBox({
+      boxId: 'next-colts-box', key: 'colts', teamId: COLTS_TEAM_ID,
+      match: e => e.isColts,
+      labels: { live: 'Colts playing right now', next: 'Next Colts game', none: 'Colts',
+                noneText: 'No upcoming games found — the season may be complete.' },
+      events
+    });
+    renderTeamBox({
+      boxId: 'next-raiders-box', key: 'raiders', teamId: RAIDERS_TEAM_ID,
+      match: e => e.isRaiders,
+      labels: { live: 'Raiders playing right now', next: 'Next Raiders game', none: 'Raiders',
+                noneText: 'No upcoming games found — the season may be complete.' },
+      events
+    });
   } catch(e){
     document.getElementById('nfl-calendar').innerHTML = `<div class="msg">Couldn't load the NFL schedule right now. <a href="https://www.espn.com/nfl/schedule" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
     document.getElementById('next-colts-box').innerHTML = `<span class="tag">Next Colts game</span><div class="meta"><span>Unavailable right now.</span></div>`;
