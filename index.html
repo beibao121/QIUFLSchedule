@@ -37,6 +37,12 @@
     --colts:#003B75;
     --colts-wash:#E4EBF3;
     --colts-line:#B8CADD;
+    /* Raiders black and silver. Silver is too pale to tint with, so the wash is
+       mixed down from the black — a cool grey that reads clearly apart from the
+       Colts' blue without either one shouting. */
+    --raiders:#0B0B0B;
+    --raiders-wash:#EBEBEE;
+    --raiders-line:#C8C8D0;
     --radius:12px;
   }
   *{box-sizing:border-box;}
@@ -112,7 +118,7 @@
   .box-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;}
   .box-row .kickoff-box{margin-top:0;}
   #next-colts-box .tag{color:var(--colts);}
-  #next-raiders-box .tag{color:#0B0B0B;}
+  #next-raiders-box .tag{color:var(--raiders);}
 
   /* The nav is sticky, so without this the "Hoosiers"/"NFL" links scroll the
      section heading up underneath it. */
@@ -143,8 +149,9 @@
   }
   .dg-time{font-size:0.8rem;color:var(--ink-dim);}
   .dg-time.live{color:var(--wine);font-weight:700;letter-spacing:0.02em;}
+  .day-game.is-raiders{background:var(--raiders-wash);border-color:var(--raiders-line);}
   .day-game.is-colts{background:var(--colts-wash);border-color:var(--colts-line);}
-  /* Declared after .is-colts so a live Colts game keeps the live border. */
+  /* Declared after both so a live game of either keeps the live border. */
   .day-game.is-live{border-color:var(--wine);}
   .dg-matchup{font-size:0.98rem;}
   .score{color:var(--gold);font-size:0.85rem;margin-left:6px;}
@@ -603,7 +610,7 @@ function dayGameHtml(e){
   const detail = e.completed ? e.scoreHtml
     : (e.live ? `${e.scoreHtml}${e.clock ? `<span class="clock">${e.clock}</span>` : ''}` : '');
   return `
-    <div class="day-game${e.isColts ? ' is-colts' : ''}${e.live ? ' is-live' : ''}">
+    <div class="day-game${e.isColts ? ' is-colts' : (e.isRaiders ? ' is-raiders' : '')}${e.live ? ' is-live' : ''}">
       <div class="dg-time${e.live ? ' live' : ''}">${e.timeStr}</div>
       <div class="dg-matchup">${e.matchupHtml} ${detail}${winOddsHtml(e)}${mendozaBadge(e)}</div>
       <div class="watch-pills">${e.completed ? '<span class="net final">Final</span>' : watchPillHtml(e.watch)}</div>
