@@ -297,7 +297,10 @@ const CFB_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/footba
 // ESPN drops odds again once a game is underway. The predictor, by contrast,
 // has a number for every game on the schedule and refreshes daily.
 const CORE_CFB = 'https://sports.core.api.espn.com/v2/sports/football/leagues/college-football';
-const NFL_SEASON_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20260901-20270215&limit=1000';
+// ESPN's scoreboard endpoint is reliable when queried by season. A broad
+// cross-season date range can return an empty events array, which makes the
+// page incorrectly report that the NFL season is complete.
+const NFL_SEASON_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&limit=1000';
 
 // Kickoffs that haven't been announced yet come back from ESPN with
 // timeValid:false and a placeholder timestamp of midnight Eastern (04:00Z in
