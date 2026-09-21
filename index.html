@@ -136,8 +136,12 @@
 
   /* ---- week view ---- */
   .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+  .cal-actions{display:flex;align-items:center;gap:8px;}
   .cal-month{font-family:'Fraunces',serif;font-size:1.15rem;}
   .cal-nav{background:var(--panel);border:1px solid var(--panel-line);border-radius:999px;width:34px;height:34px;cursor:pointer;color:var(--ink);font-size:1.15rem;line-height:1;}
+  .today-btn,.filter-select{background:var(--panel);border:1px solid var(--panel-line);border-radius:999px;padding:8px 12px;color:var(--ink);cursor:pointer;}
+  .today-btn{font-family:'Fraunces',serif;font-size:0.95rem;}
+  .today-btn:hover,.filter-select:hover{border-color:var(--wine);}
   .cal-nav:hover{border-color:var(--wine);color:var(--wine);}
   .day-group{margin-bottom:22px;}
   .day-group h3{font-size:0.95rem;color:var(--wine);margin-bottom:10px;font-family:'Inter',sans-serif;font-weight:600;}
@@ -269,6 +273,8 @@
 
 <footer>
   <div class="wrap">
+    <div id="data-status" class="msg">Loading live schedule data…</div>
+    <button type="button" class="today-btn" id="retry-all">Refresh schedules</button>
     Schedule and broadcast data from ESPN, fetched live each time this page loads. Times shown in your device's local time zone; games whose kickoff time hasn't been announced yet show as TBD. "Where to watch" is matched to your apps — Paramount+, Peacock, Netflix, Prime Video, Hulu, Disney+, and Fox One. Games that aren't on any of them say so instead of sending you to an app that wouldn't work. Win chances come from betting odds for NFL games, with the bookmaker's margin taken out, and from ESPN's own projection for Indiana — sportsbooks don't post college lines this far ahead. Either way it's an estimate, not a forecast. Broadcasts can change, so it's worth double-checking close to kickoff.
   </div>
 </footer>
@@ -649,7 +655,8 @@ function renderWeek(containerId, events){
 
     root.innerHTML = `
       <div class="cal-head">
-        <button type="button" class="cal-nav" data-dir="-1" aria-label="Previous two weeks">‹</button>
+        <div class="cal-actions"><button type="button" class="cal-nav" data-dir="-1" aria-label="Previous two weeks">‹</button>
+        <button type="button" class="today-btn" data-today>Today</button></div>
         <span class="cal-month">${label}</span>
         <button type="button" class="cal-nav" data-dir="1" aria-label="Next two weeks">›</button>
       </div>
@@ -667,9 +674,26 @@ function renderWeek(containerId, events){
         draw();
       });
     });
+    const today = root.querySelector('[data-today]');
+    if(today) today.addEventListener('click', () => { periodStart = startOfWeek(new Date()); draw(); });
   }
 
   draw();
+}
+
+const CACHE_PREFIX = 'qiufl-schedule-';
+function cacheEvents(key, events){
+  try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(events)); } catch(e) {}
+}
+function readCachedEvents(key){
+  try { return JSON.parse(localStorage.getItem(CACHE_PREFIX + key) || 'null'); } catch(e) { return null; }
+}
+function setDataStatus(message, error=false){
+  const el = document.getElementById('data-status');
+  if(el){ el.textContent = message; el.style.color = error ? 'var(--wine)' : ''; }
+}
+function retryButton(sectionId, loader, link){
+  return `<div class="msg">Couldn't load this schedule. <button type="button" class="today-btn" data-retry="${sectionId}">Retry</button> <a href="${link}" target="_blank" rel="noopener">View on ESPN</a>.</div>`;
 }
 
 /* ---------- loaders ---------- */
@@ -908,7 +932,7 @@ async function loadIU(){
 
     const events = normalizeEvents(data.events, IU_TEAM_ID).sort((a,b) => a.date - b.date);
     if(!events.length){
-      document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
+      document.getElementById('iu-calendar').innerHTML = retryButton('iu-calendar', loadIU, 'https://www.espn.com/college-football/team/schedule/_/id/84/indiana');
       return;
     }
     await attachLiveScores(events);
@@ -930,7 +954,8 @@ async function loadIU(){
       });
     }
   } catch(e){
-    document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule right now. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
+    document.getElementById('iu-calendar').innerHTML = retryButton('iu-calendar', loadIU, 'https://www.espn.com/college-football/team/schedule/_/id/84/indiana');
+    setDataStatus('Indiana schedule unavailable; use Retry to try again.', true);
     document.getElementById('next-iu-box').innerHTML = `<span class="tag">Next Hoosiers kickoff</span><div class="meta"><span>Unavailable right now.</span></div>`;
   }
 }
@@ -1048,7 +1073,8 @@ async function loadNFL(){
       events
     });
   } catch(e){
-    document.getElementById('nfl-calendar').innerHTML = `<div class="msg">Couldn't load the NFL schedule right now. <a href="https://www.espn.com/nfl/schedule" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
+    document.getElementById('nfl-calendar').innerHTML = retryButton('nfl-calendar', loadNFL, 'https://www.espn.com/nfl/schedule');
+    setDataStatus('NFL schedule unavailable; use Retry to try again.', true);
     document.getElementById('next-colts-box').innerHTML = `<span class="tag">Next Colts game</span><div class="meta"><span>Unavailable right now.</span></div>`;
   }
 }
@@ -1056,6 +1082,15 @@ async function loadNFL(){
 loadIU();
 loadIUStanding();
 loadNFL();
+document.addEventListener('click', event => {
+  if(event.target.matches('[data-retry="iu-calendar"]')) loadIU();
+  if(event.target.matches('[data-retry="nfl-calendar"]')) loadNFL();
+});
+document.getElementById('retry-all').addEventListener('click', () => {
+  setDataStatus('Refreshing live schedule data…');
+  loadIU(); loadNFL(); loadIUStanding();
+});
+setDataStatus(`Live data loaded ${new Date().toLocaleString()}`);
 </script>
 </body>
 </html>
