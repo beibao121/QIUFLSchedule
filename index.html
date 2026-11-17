@@ -124,9 +124,11 @@
   #playoff-box .asof{float:right;color:var(--ink-dim);font-weight:400;}
   #playoff-box .standing{font-family:'Fraunces',serif;font-size:1.25rem;margin:2px 0 3px;}
   #playoff-box .sub{color:var(--ink-dim);font-size:0.86rem;margin-bottom:14px;}
-  .odds-row{display:flex;gap:8px;margin:0 0 16px;}
+  /* Four across where there's room; two-by-two on a phone, where four would
+     squeeze each cell to about 69px and wrap the labels to three lines. */
+  .odds-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 16px;}
   .odds-cell{
-    flex:1;min-width:0;text-align:center;padding:9px 6px;
+    min-width:0;text-align:center;padding:9px 6px;
     border:1px solid var(--panel-line);border-radius:9px;background:var(--bg);
   }
   .odds-cell .n{display:block;font-family:'Fraunces',serif;font-size:1.15rem;line-height:1.1;}
@@ -248,6 +250,7 @@
     .section-head{margin-bottom:16px;}
     .cal-head{margin-bottom:14px;}
     .box-row{grid-template-columns:1fr;gap:12px;margin-bottom:20px;}
+    .odds-row{grid-template-columns:repeat(2,1fr);}
   }
 </style>
 </head>
@@ -1118,6 +1121,7 @@ async function loadPlayoffPicture(){
       return row && typeof row.value === 'number' ? row.value : null;
     };
     const funnel = [
+      { pct: predictive('probwinconf'),       label: 'win the<br>Big Ten' },
       { pct: predictive('probmakeplayoffs'),  label: 'make the<br>playoff' },
       { pct: predictive('probmaketitlegame'), label: 'reach the<br>final' },
       { pct: predictive('probwintitle'),      label: 'win the<br>title', hero: true }
