@@ -121,6 +121,32 @@
   #next-raiders-box .tag{color:var(--raiders);}
   #playoff-box{margin-top:0;margin-bottom:24px;}
   #playoff-box .tag{color:var(--gold);}
+  #playoff-box .asof{float:right;color:var(--ink-dim);font-weight:400;}
+  #playoff-box .standing{font-family:'Fraunces',serif;font-size:1.25rem;margin:2px 0 3px;}
+  #playoff-box .sub{color:var(--ink-dim);font-size:0.86rem;margin-bottom:14px;}
+
+  /* A vertical rail of rounds. The next game is filled in; later ones stay
+     hollow, matching how certain the opponent actually is. */
+  .rail{display:flex;flex-direction:column;}
+  .leg{display:grid;grid-template-columns:16px 1fr;gap:12px;}
+  .rail-col{position:relative;display:flex;justify-content:center;}
+  .rail-col::before{content:'';position:absolute;top:0;bottom:0;width:2px;background:var(--panel-line);}
+  .leg:first-child .rail-col::before{top:13px;}
+  .leg:last-child .rail-col::before{bottom:calc(100% - 13px);}
+  .dot{position:relative;width:9px;height:9px;border-radius:50%;margin-top:9px;
+       background:var(--panel);border:2px solid var(--panel-line);}
+  .leg.next .dot{border-color:var(--wine);background:var(--wine);}
+  .leg-card{padding:0 0 16px;min-width:0;}
+  .round{font-size:0.7rem;color:var(--ink-dim);}
+  .leg.next .round{color:var(--wine);font-weight:600;}
+  .opponent{display:flex;align-items:center;gap:8px;margin-top:2px;min-width:0;}
+  .opponent img{width:22px;height:22px;object-fit:contain;flex-shrink:0;}
+  .opponent .nm{font-family:'Fraunces',serif;font-size:1.02rem;}
+  .opponent .rec{color:var(--ink-dim);font-size:0.78rem;}
+  .maybe{display:flex;align-items:center;gap:5px;margin-top:3px;flex-wrap:wrap;}
+  .maybe img{width:17px;height:17px;object-fit:contain;opacity:0.75;}
+  .maybe .or{color:var(--ink-dim);font-size:0.72rem;}
+  .where{color:var(--ink-dim);font-size:0.76rem;margin-top:2px;}
 
   /* The nav is sticky, so without this the "Hoosiers"/"NFL" links scroll the
      section heading up underneath it. */
@@ -320,8 +346,6 @@ const SEASON = 2026;
 // the core API. Only exists from early November, and each entry references its
 // team by URL rather than naming it inline.
 const CFP_RANKINGS_URL = `${CORE_CFB}/rankings/21`;
-// Core API rather than the site one, for the CORS reason noted above.
-const CFB_TEAM_BASE = `${CORE_CFB}/seasons/${SEASON}/teams/`;
 // ESPN used to accept dates=START-END on the scoreboard, which fetched the
 // whole season in one call. That now returns 400 in every form.
 //
@@ -749,6 +773,16 @@ function setLogo(id, url){
   img.src = url;
 }
 
+// The standing line and the playoff path both need this response, so it's
+// fetched once and shared. Reset on an explicit refresh so the button really
+// re-pulls rather than replaying a cached promise.
+let rankingsPromise = null;
+function getRankings(){
+  if(!rankingsPromise) rankingsPromise = fetch(CFB_RANKINGS_URL).then(r => r.json());
+  return rankingsPromise;
+}
+function resetRankingsCache(){ rankingsPromise = null; }
+
 // Prefers the gamesPlayed stat; falls back to summing the "W-L" summary if the
 // stats array isn't there.
 function gamesPlayed(recordItem){
@@ -782,8 +816,7 @@ async function loadIUStanding(team){
   }
 
   try{
-    const res = await fetch(CFB_RANKINGS_URL);
-    const data = await res.json();
+    const data = await getRankings();
     const polls = Array.isArray(data.rankings) ? data.rankings : [];
     const ap = polls.find(p => p.type === 'ap')
       || polls.find(p => (p.shortName || '').toUpperCase().indexOf('AP') === 0);
@@ -956,14 +989,51 @@ async function attachLiveScores(events){
   } catch(err){ /* leave the live rows without a score */ }
 }
 
-// The 12-team bracket seeds straight off the committee's ranking: 1-4 get a
-// first-round bye, 5-12 play, and the higher seed hosts. Pairings are 5v12,
-// 6v11, 7v10, 8v9 — so an opponent's seed is always 17 minus yours.
-function seedingSummary(seed){
-  if(seed <= 4) return { seedLine: `No. ${seed} seed`, detail: 'First-round bye, straight to the quarterfinals', foe: null };
-  if(seed <= 8) return { seedLine: `No. ${seed} seed`, detail: 'Hosts a first-round game', foe: 17 - seed, home: true };
-  if(seed <= 12) return { seedLine: `No. ${seed} seed`, detail: 'On the road in the first round', foe: 17 - seed, home: false };
-  return { seedLine: `No. ${seed} in the CFP`, detail: 'Outside the top 12, so out of the field as things stand', foe: null };
+// The 12-team bracket. Seeds come straight off the committee's ranking: 1-4 get
+// a first-round bye, 5-12 play with the higher seed hosting, paired 5v12
+// through 8v9 — so a first-round opponent is always 17 minus your seed.
+//
+// Each bye seed heads a quarter of the bracket containing three teams, and the
+// semifinals pair the 1 and 4 brackets against the 2 and 3.
+const bracketSeeds = bye => [bye, 9 - bye, 8 + bye];
+const SEMI_PARTNER = { 1:4, 4:1, 2:3, 3:2 };
+
+// Everything IU would have to get through, from their seed. Opponents are named
+// while they're certain and become a set of candidates once the result depends
+// on other games — which is the honest way to show it.
+function playoffPath(seed){
+  if(seed > 12) return null;
+  const legs = [];
+  const bye = seed <= 4 ? seed : 9 - Math.min(seed, 17 - seed);
+
+  if(seed > 4){
+    legs.push({
+      round: 'First round',
+      seeds: [17 - seed],
+      note: seed <= 8 ? 'At home — the higher seed hosts' : 'Away — the higher seed hosts'
+    });
+    legs.push({ round: 'Quarterfinal', seeds: [bye], note: 'They had a first-round bye' });
+  } else {
+    legs.push({
+      round: 'Quarterfinal',
+      seeds: bracketSeeds(bye).filter(s => s !== seed),
+      note: 'Whoever comes out of their first-round game'
+    });
+  }
+
+  const partner = SEMI_PARTNER[bye];
+  legs.push({
+    round: 'Semifinal',
+    seeds: bracketSeeds(partner),
+    note: `Whoever comes through the No. ${partner} bracket`
+  });
+  const otherHalf = [1,2,3,4].filter(b => b !== bye && b !== partner);
+  legs.push({
+    round: 'National championship',
+    seeds: otherHalf.flatMap(bracketSeeds),
+    note: `Any of six from the No. ${otherHalf[0]} and No. ${otherHalf[1]} brackets`
+  });
+  return legs;
 }
 
 function cfpTeamId(rankEntry){
@@ -972,14 +1042,36 @@ function cfpTeamId(rankEntry){
   return m ? m[1] : null;
 }
 
-// Committee ranking plus what it would mean for seeding. Hidden entirely when
-// there's no CFP poll yet — it doesn't exist until November — or when IU isn't
-// in the top 25.
+// The CFP poll references teams by URL and carries no names. The AP poll in the
+// rankings response does carry them, inline, along with logos and records — and
+// every CFP top-12 team is inside the AP 25 — so the whole field can be named
+// from a response already being fetched, instead of 25 lookups.
+function teamLookupFromAP(rankingsData){
+  const ap = (rankingsData.rankings || []).find(p => p.type === 'ap')
+    || (rankingsData.rankings || []).find(p => (p.shortName || '').toUpperCase().indexOf('AP') === 0);
+  const map = {};
+  if(!ap) return map;
+  [...(ap.ranks || []), ...(ap.others || [])].forEach(r => {
+    if(!r.team || !r.team.id) return;
+    map[String(r.team.id)] = {
+      name: r.team.location || r.team.nickname || r.team.name || '',
+      logo: r.team.logo || '',
+      record: r.recordSummary || ''
+    };
+  });
+  return map;
+}
+
+// Committee ranking and the road it implies. Hidden entirely when there's no
+// CFP poll — it doesn't exist until November — or when IU aren't in the top 25.
 async function loadPlayoffPicture(){
   const box = document.getElementById('playoff-box');
   if(!box) return;
   try{
-    const data = await (await fetch(CFP_RANKINGS_URL)).json();
+    const [data, rankingsData] = await Promise.all([
+      fetch(CFP_RANKINGS_URL).then(r => r.json()),
+      getRankings()
+    ]);
     // Guard against the endpoint serving a previous season's final rankings
     // during the months when no current poll exists.
     if(data.type !== 'cfp' || (data.season && data.season.year !== SEASON)) return;
@@ -987,34 +1079,73 @@ async function loadPlayoffPicture(){
     const iu = ranks.find(r => cfpTeamId(r) === String(IU_TEAM_ID));
     if(!iu || !iu.current) return;
 
-    const s = seedingSummary(iu.current);
+    const info = teamLookupFromAP(rankingsData);
+    const bySeed = {};
+    ranks.forEach(r => {
+      const id = cfpTeamId(r);
+      bySeed[r.current] = Object.assign({ seed: r.current, name: '', logo: '', record: '' }, info[id] || {});
+    });
+
     const when = data.date ? new Date(data.date) : null;
     const asOf = when && !isNaN(when.getTime())
       ? when.toLocaleDateString(undefined, { month:'short', day:'numeric', timeZone: EASTERN }) : null;
     const week = data.occurrence && data.occurrence.displayValue;
+    const stamp = asOf ? `<span class="asof">CFP${week ? ' ' + week : ''} · as of ${asOf}</span>` : '';
 
-    // Resolve only the one opponent rather than all 25 teams — the rankings
-    // give team URLs, not names.
-    let foeHtml = '';
-    if(s.foe){
-      const foeEntry = ranks.find(r => r.current === s.foe);
-      const foeId = cfpTeamId(foeEntry);
-      if(foeId){
-        try{
-          const t = await (await fetch(CFB_TEAM_BASE + foeId)).json();
-          // Core API puts displayName at the top level; the site API nests it
-          // under .team. Accept either so this survives a switch back.
-          const name = t && (t.displayName || (t.team && t.team.displayName));
-          if(name) foeHtml = `<span>${s.home ? 'vs' : 'at'} No. ${s.foe} ${name}</span>`;
-        } catch(err){ /* seed line alone still stands */ }
-      }
+    const seed = iu.current;
+    const legs = playoffPath(seed);
+
+    if(!legs){
+      const outBy = seed - 12;
+      box.innerHTML = `
+        <span class="tag">Playoff picture ${stamp}</span>
+        <div class="standing">No. ${seed} in the CFP</div>
+        <div class="sub">Outside the top 12, so out of the field as things stand — ${outBy === 1 ? 'one spot' : outBy + ' spots'} back.</div>`;
+      box.hidden = false;
+      return;
     }
 
+    const named = s => bySeed[s] && bySeed[s].name;
+    const teamLine = s => {
+      const t = bySeed[s];
+      return `<div class="opponent">${t.logo ? `<img src="${t.logo}" alt="">` : ''}
+        <span class="nm">No. ${s} ${t.name}</span>${t.record ? `<span class="rec">${t.record}</span>` : ''}</div>`;
+    };
+    // Up to three candidates read fine as "A or B or C". The championship leg
+    // can have six, where that becomes a wall of "or" — so past three it drops
+    // to logos alone and lets the note underneath explain them.
+    const teamPool = seeds => {
+      const list = seeds.filter(named);
+      if(!list.length) return '';
+      const withNames = list.length <= 3;
+      return `<div class="maybe">${list.map((s, i) => {
+        const t = bySeed[s];
+        const sep = (i && withNames) ? '<span class="or">or</span>' : '';
+        const logo = t.logo ? `<img src="${t.logo}" alt="" title="No. ${s} ${t.name}">` : '';
+        return sep + logo + (withNames ? `<span class="or">${t.name}</span>` : '');
+      }).join('')}</div>`;
+    };
+
+    const cushion = 12 - seed;
+    const lede = seed <= 4
+      ? `A first-round bye, and ${legs.length} wins from a title.`
+      : `${cushion === 0 ? 'The last team in' : cushion === 1 ? 'One spot clear of the cut' : `${cushion} spots clear of the cut`}, and ${legs.length} wins from a title.`;
+
     box.innerHTML = `
-      <span class="tag">Playoff picture</span>
-      <div class="matchup">${s.seedLine}</div>
-      <div class="meta"><span>${s.detail}</span>${foeHtml}${
-        asOf ? `<span>CFP${week ? ' ' + week : ''} — as of ${asOf}</span>` : ''}</div>`;
+      <span class="tag">Playoff path ${stamp}</span>
+      <div class="standing">No. ${seed} seed</div>
+      <div class="sub">${lede}</div>
+      <div class="rail">
+        ${legs.map((leg, i) => `
+          <div class="leg${i === 0 ? ' next' : ''}">
+            <div class="rail-col"><div class="dot"></div></div>
+            <div class="leg-card">
+              <div class="round">${leg.round}</div>
+              ${leg.seeds.length === 1 && named(leg.seeds[0]) ? teamLine(leg.seeds[0]) : teamPool(leg.seeds)}
+              <div class="where">${leg.note}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
     box.hidden = false;
   } catch(e){ /* leave it hidden */ }
 }
@@ -1195,6 +1326,7 @@ document.getElementById('retry-all').addEventListener('click', () => {
   // loadIU re-renders the standing itself with the team object from the
   // schedule response; calling loadIUStanding() bare here would race it and
   // blank out the record and conference line.
+  resetRankingsCache();
   loadIU(); loadNFL(); loadPlayoffPicture();
 });
 setDataStatus(`Live data loaded ${new Date().toLocaleString()}`);
