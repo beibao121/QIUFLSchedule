@@ -119,6 +119,8 @@
   .box-row .kickoff-box{margin-top:0;}
   #next-colts-box .tag{color:var(--colts);}
   #next-raiders-box .tag{color:var(--raiders);}
+  #playoff-box{margin-top:0;margin-bottom:24px;}
+  #playoff-box .tag{color:var(--gold);}
 
   /* The nav is sticky, so without this the "Hoosiers"/"NFL" links scroll the
      section heading up underneath it. */
@@ -241,6 +243,10 @@
       </div>
       <div class="sub" id="iu-standing"></div>
     </div>
+    <div class="kickoff-box" id="playoff-box" hidden>
+      <span class="tag">Playoff picture</span>
+      <div class="msg" style="padding:0;">Loading…</div>
+    </div>
     <div id="iu-calendar"><div class="msg">Loading schedule…</div></div>
   </div>
 </section>
@@ -285,7 +291,11 @@ const MENDOZA_ATHLETE_ID = 4837248;
 const NFL_DEPTH_URL = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/teams/${RAIDERS_TEAM_ID}/depthcharts`;
 const NFL_SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=';
 const CFB_SCHEDULE_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}/schedule?season=2026`;
-const CFB_TEAM_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${IU_TEAM_ID}`;
+// Note there's no site-API /teams/{id} call here. That endpoint stopped
+// sending an Access-Control-Allow-Origin header, so browsers now refuse it —
+// the record and conference standing silently vanished from the header as a
+// result. Both values also live on the schedule response, which is already
+// fetched and still sends CORS, so they come from there instead.
 const CFB_RANKINGS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/rankings';
 // The team schedule endpoint omits score entirely while a game is in progress —
 // it only appears once the game is final. The scoreboard carries it live, so a
@@ -297,7 +307,38 @@ const CFB_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/footba
 // ESPN drops odds again once a game is underway. The predictor, by contrast,
 // has a number for every game on the schedule and refreshes daily.
 const CORE_CFB = 'https://sports.core.api.espn.com/v2/sports/football/leagues/college-football';
-const NFL_SEASON_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20260901-20270215&limit=1000';
+const SEASON = 2026;
+// The committee's own rankings, which are the ones that decide the bracket —
+// not the AP poll. Ranking id 21; the site API's rankings endpoint doesn't
+// return this one at all, and ignores a type filter, so it has to come from
+// the core API. Only exists from early November, and each entry references its
+// team by URL rather than naming it inline.
+const CFP_RANKINGS_URL = `${CORE_CFB}/rankings/21`;
+// Core API rather than the site one, for the CORS reason noted above.
+const CFB_TEAM_BASE = `${CORE_CFB}/seasons/${SEASON}/teams/`;
+// ESPN used to accept dates=START-END on the scoreboard, which fetched the
+// whole season in one call. That now returns 400 in every form, so the season
+// has to be assembled from calendar years instead: an NFL season straddles
+// two. Each call returns some games that aren't wanted — the tail of the
+// previous season, and preseason — so the merge filters on season.year and
+// drops season type 1. That lands on exactly the 285 regular-season and
+// playoff games the old single call used to return.
+const NFL_SEASON_URLS = [
+  'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2026&limit=1000',
+  'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=2027&limit=1000'
+];
+
+async function fetchNflSeason(){
+  const pages = await Promise.all(NFL_SEASON_URLS.map(u => fetch(u).then(r => r.json())));
+  const byId = new Map();
+  pages.forEach(p => (p.events || []).forEach(ev => {
+    const s = ev.season || {};
+    if(s.year !== SEASON || s.type === 1) return;   // other season, or preseason
+    byId.set(String(ev.id), ev);
+  }));
+  const leagues = pages.find(p => Array.isArray(p.leagues) && p.leagues.length);
+  return { events: [...byId.values()], leagues: leagues ? leagues.leagues : [] };
+}
 
 // Kickoffs that haven't been announced yet come back from ESPN with
 // timeValid:false and a placeholder timestamp of midnight Eastern (04:00Z in
@@ -696,27 +737,23 @@ function gamesPlayed(recordItem){
 // Record + latest AP Poll standing for the IU section header. Purely
 // decorative: each half is independent, and anything that doesn't come back in
 // the expected shape is simply left out rather than shown as an error.
-async function loadIUStanding(){
+// `team` is the team object off the schedule response, passed in by loadIU
+// rather than fetched again. May be absent if that call failed, in which case
+// the AP ranking still renders on its own.
+async function loadIUStanding(team){
   const el = document.getElementById('iu-standing');
   if(!el) return;
   let rankHtml = '';
   const parts = [];
 
-  try{
-    const res = await fetch(CFB_TEAM_URL);
-    const data = await res.json();
-    const team = (data && data.team) || {};
-    const items = team.record && Array.isArray(team.record.items) ? team.record.items : [];
-    const overall = items.find(i => i.type === 'total') || items[0];
-    if(overall && overall.summary) parts.push(`<span>${overall.summary}</span>`);
-
-    // standingSummary reads "1st in Big Ten" before a single game is played,
-    // because at 0-0 everyone is tied for first. Only show it once the record
-    // means something.
-    if(team.standingSummary && gamesPlayed(overall) > 0){
-      parts.push(`<span>${team.standingSummary}</span>`);
-    }
-  } catch(e){ /* leave the record out */ }
+  const record = team && team.recordSummary;
+  if(record) parts.push(`<span>${record}</span>`);
+  // standingSummary reads "1st in Big Ten" before a single game is played,
+  // because at 0-0 everyone is tied for first. Only show it once the record
+  // means something.
+  if(team && team.standingSummary && gamesPlayed({ summary: record }) > 0){
+    parts.push(`<span>${team.standingSummary}</span>`);
+  }
 
   try{
     const res = await fetch(CFB_RANKINGS_URL);
@@ -893,6 +930,69 @@ async function attachLiveScores(events){
   } catch(err){ /* leave the live rows without a score */ }
 }
 
+// The 12-team bracket seeds straight off the committee's ranking: 1-4 get a
+// first-round bye, 5-12 play, and the higher seed hosts. Pairings are 5v12,
+// 6v11, 7v10, 8v9 — so an opponent's seed is always 17 minus yours.
+function seedingSummary(seed){
+  if(seed <= 4) return { seedLine: `No. ${seed} seed`, detail: 'First-round bye, straight to the quarterfinals', foe: null };
+  if(seed <= 8) return { seedLine: `No. ${seed} seed`, detail: 'Hosts a first-round game', foe: 17 - seed, home: true };
+  if(seed <= 12) return { seedLine: `No. ${seed} seed`, detail: 'On the road in the first round', foe: 17 - seed, home: false };
+  return { seedLine: `No. ${seed} in the CFP`, detail: 'Outside the top 12, so out of the field as things stand', foe: null };
+}
+
+function cfpTeamId(rankEntry){
+  const ref = rankEntry && rankEntry.team && rankEntry.team.$ref;
+  const m = ref && ref.match(/\/teams\/(\d+)/);
+  return m ? m[1] : null;
+}
+
+// Committee ranking plus what it would mean for seeding. Hidden entirely when
+// there's no CFP poll yet — it doesn't exist until November — or when IU isn't
+// in the top 25.
+async function loadPlayoffPicture(){
+  const box = document.getElementById('playoff-box');
+  if(!box) return;
+  try{
+    const data = await (await fetch(CFP_RANKINGS_URL)).json();
+    // Guard against the endpoint serving a previous season's final rankings
+    // during the months when no current poll exists.
+    if(data.type !== 'cfp' || (data.season && data.season.year !== SEASON)) return;
+    const ranks = Array.isArray(data.ranks) ? data.ranks : [];
+    const iu = ranks.find(r => cfpTeamId(r) === String(IU_TEAM_ID));
+    if(!iu || !iu.current) return;
+
+    const s = seedingSummary(iu.current);
+    const when = data.date ? new Date(data.date) : null;
+    const asOf = when && !isNaN(when.getTime())
+      ? when.toLocaleDateString(undefined, { month:'short', day:'numeric', timeZone: EASTERN }) : null;
+    const week = data.occurrence && data.occurrence.displayValue;
+
+    // Resolve only the one opponent rather than all 25 teams — the rankings
+    // give team URLs, not names.
+    let foeHtml = '';
+    if(s.foe){
+      const foeEntry = ranks.find(r => r.current === s.foe);
+      const foeId = cfpTeamId(foeEntry);
+      if(foeId){
+        try{
+          const t = await (await fetch(CFB_TEAM_BASE + foeId)).json();
+          // Core API puts displayName at the top level; the site API nests it
+          // under .team. Accept either so this survives a switch back.
+          const name = t && (t.displayName || (t.team && t.team.displayName));
+          if(name) foeHtml = `<span>${s.home ? 'vs' : 'at'} No. ${s.foe} ${name}</span>`;
+        } catch(err){ /* seed line alone still stands */ }
+      }
+    }
+
+    box.innerHTML = `
+      <span class="tag">Playoff picture</span>
+      <div class="matchup">${s.seedLine}</div>
+      <div class="meta"><span>${s.detail}</span>${foeHtml}${
+        asOf ? `<span>CFP${week ? ' ' + week : ''} — as of ${asOf}</span>` : ''}</div>`;
+    box.hidden = false;
+  } catch(e){ /* leave it hidden */ }
+}
+
 async function loadIU(){
   try{
     const res = await fetch(CFB_SCHEDULE_URL);
@@ -902,6 +1002,7 @@ async function loadIU(){
       ? data.team.logos[0].href
       : 'https://a.espncdn.com/i/teamlogos/ncaa/500/84.png';
     setLogo('iu-logo', teamLogo);
+    loadIUStanding(data.team);
 
     const events = normalizeEvents(data.events, IU_TEAM_ID).sort((a,b) => a.date - b.date);
     if(!events.length){
@@ -929,6 +1030,8 @@ async function loadIU(){
   } catch(e){
     document.getElementById('iu-calendar').innerHTML = `<div class="msg">Couldn't load the schedule right now. <a href="https://www.espn.com/college-football/team/schedule/_/id/84/indiana" target="_blank" rel="noopener">View it on ESPN instead</a>.</div>`;
     document.getElementById('next-iu-box').innerHTML = `<span class="tag">Next Hoosiers kickoff</span><div class="meta"><span>Unavailable right now.</span></div>`;
+    // Still worth showing the AP ranking even with no schedule to hang it on.
+    loadIUStanding(null);
   }
 }
 
@@ -1010,7 +1113,7 @@ async function loadNFL(){
     // Depth chart runs alongside the season payload rather than after it — it's
     // a small independent call and there's no reason to serialise them.
     const [data, rank] = await Promise.all([
-      fetch(NFL_SEASON_URL).then(r => r.json()),
+      fetchNflSeason(),
       fetchMendozaRank()
     ]);
     mendozaRank = rank;
@@ -1050,8 +1153,10 @@ async function loadNFL(){
   }
 }
 
+// loadIU calls loadIUStanding itself, handing over the team object from the
+// schedule response.
 loadIU();
-loadIUStanding();
+loadPlayoffPicture();
 loadNFL();
 </script>
 </body>
