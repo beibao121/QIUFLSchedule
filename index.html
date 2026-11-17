@@ -124,6 +124,16 @@
   #playoff-box .asof{float:right;color:var(--ink-dim);font-weight:400;}
   #playoff-box .standing{font-family:'Fraunces',serif;font-size:1.25rem;margin:2px 0 3px;}
   #playoff-box .sub{color:var(--ink-dim);font-size:0.86rem;margin-bottom:14px;}
+  .odds-row{display:flex;gap:8px;margin:0 0 16px;}
+  .odds-cell{
+    flex:1;min-width:0;text-align:center;padding:9px 6px;
+    border:1px solid var(--panel-line);border-radius:9px;background:var(--bg);
+  }
+  .odds-cell .n{display:block;font-family:'Fraunces',serif;font-size:1.15rem;line-height:1.1;}
+  .odds-cell .l{display:block;color:var(--ink-dim);font-size:0.68rem;line-height:1.25;margin-top:3px;}
+  /* The title chance is the one being asked about, so it carries the accent. */
+  .odds-cell.title{border-color:var(--gold);background:#FBF6EA;}
+  .odds-cell.title .n{color:var(--gold);}
 
   /* A vertical rail of rounds. The next game is filled in; later ones stay
      hollow, matching how certain the opponent actually is. */
@@ -346,6 +356,10 @@ const SEASON = 2026;
 // the core API. Only exists from early November, and each entry references its
 // team by URL rather than naming it inline.
 const CFP_RANKINGS_URL = `${CORE_CFB}/rankings/21`;
+// ESPN's FPI projections. Among the "predictives" are probmakeplayoffs,
+// probmaketitlegame and probwintitle — the only place on this API that puts a
+// number on a national title. Refreshed daily.
+const CFB_POWERINDEX_URL = `${CORE_CFB}/seasons/${SEASON}/powerindex/${IU_TEAM_ID}`;
 // ESPN used to accept dates=START-END on the scoreboard, which fetched the
 // whole season in one call. That now returns 400 in every form.
 //
@@ -903,8 +917,10 @@ function nflWinPct(comp){
 
 // Rounds to a whole number, except at the extremes where rounding would print
 // 100% or 0% — neither is ever true, and 99.9% is the honest figure anyway.
+// Below 10 it keeps a decimal too: at that end a whole number throws away a lot
+// of relative information, since 5% and 6% are a fifth apart.
 function formatPct(pct){
-  if(pct >= 99 || pct <= 1) return pct.toFixed(1).replace(/\.0$/, '') + '%';
+  if(pct >= 99 || pct < 10) return pct.toFixed(1).replace(/\.0$/, '') + '%';
   return Math.round(pct) + '%';
 }
 
@@ -1068,9 +1084,11 @@ async function loadPlayoffPicture(){
   const box = document.getElementById('playoff-box');
   if(!box) return;
   try{
-    const [data, rankingsData] = await Promise.all([
+    const [data, rankingsData, fpi] = await Promise.all([
       fetch(CFP_RANKINGS_URL).then(r => r.json()),
-      getRankings()
+      getRankings(),
+      // Best effort — the path still stands without the odds.
+      fetch(CFB_POWERINDEX_URL).then(r => r.json()).catch(() => null)
     ]);
     // Guard against the endpoint serving a previous season's final rankings
     // during the months when no current poll exists.
@@ -1092,6 +1110,24 @@ async function loadPlayoffPicture(){
     const week = data.occurrence && data.occurrence.displayValue;
     const stamp = asOf ? `<span class="asof">CFP${week ? ' ' + week : ''} · as of ${asOf}</span>` : '';
 
+    // Make the field → reach the final → win it. A funnel reads better than one
+    // number on its own: it shows where the odds actually fall away.
+    const predictive = name => {
+      const row = fpi && Array.isArray(fpi.predictives)
+        ? fpi.predictives.find(p => p.name === name) : null;
+      return row && typeof row.value === 'number' ? row.value : null;
+    };
+    const funnel = [
+      { pct: predictive('probmakeplayoffs'),  label: 'make the<br>playoff' },
+      { pct: predictive('probmaketitlegame'), label: 'reach the<br>final' },
+      { pct: predictive('probwintitle'),      label: 'win the<br>title', hero: true }
+    ].filter(c => c.pct !== null);
+    const oddsRow = funnel.length ? `
+      <div class="odds-row">${funnel.map(c =>
+        `<div class="odds-cell${c.hero ? ' title' : ''}">
+           <span class="n">${formatPct(c.pct)}</span><span class="l">${c.label}</span>
+         </div>`).join('')}</div>` : '';
+
     const seed = iu.current;
     const legs = playoffPath(seed);
 
@@ -1100,7 +1136,8 @@ async function loadPlayoffPicture(){
       box.innerHTML = `
         <span class="tag">Playoff picture ${stamp}</span>
         <div class="standing">No. ${seed} in the CFP</div>
-        <div class="sub">Outside the top 12, so out of the field as things stand — ${outBy === 1 ? 'one spot' : outBy + ' spots'} back.</div>`;
+        <div class="sub">Outside the top 12, so out of the field as things stand — ${outBy === 1 ? 'one spot' : outBy + ' spots'} back.</div>
+        ${oddsRow}`;
       box.hidden = false;
       return;
     }
@@ -1135,6 +1172,7 @@ async function loadPlayoffPicture(){
       <span class="tag">Playoff path ${stamp}</span>
       <div class="standing">No. ${seed} seed</div>
       <div class="sub">${lede}</div>
+      ${oddsRow}
       <div class="rail">
         ${legs.map((leg, i) => `
           <div class="leg${i === 0 ? ' next' : ''}">
